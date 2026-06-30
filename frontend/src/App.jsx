@@ -63,14 +63,14 @@ function App() {
 
     return (
         <>
-            {userData && userData.role !== "admin" && <Nav />}
+            {(!userData || userData.role !== "admin") && <Nav />}
             <Routes>
                 <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
                 <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />
                 <Route path='/forgot-password' element={!userData ? <ForgotPassword /> : <Navigate to={"/"} />} />
-                <Route path='/' element={userData ? <Home /> : <Navigate to={"/signin"} />} />
+                <Route path='/' element={userData?.role === "admin" ? <Navigate to={"/admin"} /> : <Home />} />
                 <Route path='/worker-onboarding' element={userData?.role === "worker" ? <WorkerOnboarding /> : <Navigate to={"/signin"} />} />
-                <Route path='/worker/:workerId' element={userData ? <WorkerProfilePage /> : <Navigate to={"/signin"} />} />
+                <Route path='/worker/:workerId' element={<WorkerProfilePage />} />
                 <Route path='/book/:workerId' element={userData?.role === "customer" ? <BookWorkerPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/bookings/:bookingId' element={userData ? <BookingDetailPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/bookings' element={userData?.role === "customer" ? <MyBookingsPage /> : <Navigate to={"/signin"} />} />

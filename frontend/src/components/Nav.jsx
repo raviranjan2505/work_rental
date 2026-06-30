@@ -34,81 +34,101 @@ function Nav() {
                 Men On Rent
             </h1>
 
-            {userData.role === "customer" && (
+            {userData?.role === "customer" && (
                 <div className='hidden md:flex items-center gap-2 text-gray-600'>
                     <FaLocationDot className='text-[#ff4d2d]' />
                     <span className='truncate max-w-[200px]'>{currentCity || "Detecting location..."}</span>
                 </div>
             )}
 
-            <div className='flex items-center gap-4'>
-                {userData.role === "customer" && (
+            {/* Guest: just show Sign In / Sign Up, nothing account-specific */}
+            {!userData && (
+                <div className='flex items-center gap-3'>
                     <button
-                        className='hidden md:block px-3 py-1.5 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] text-sm font-medium'
-                        onClick={() => navigate("/bookings")}
+                        className='px-4 py-1.5 rounded-lg text-[#ff4d2d] text-sm font-medium border border-[#ff4d2d]'
+                        onClick={() => navigate("/signin")}
                     >
-                        My Bookings
+                        Sign In
                     </button>
-                )}
-                {userData.role === "worker" && (
                     <button
-                        className='hidden md:block px-3 py-1.5 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] text-sm font-medium'
-                        onClick={() => navigate("/worker-bookings")}
+                        className='px-4 py-1.5 rounded-lg bg-[#ff4d2d] text-white text-sm font-medium'
+                        onClick={() => navigate("/signup")}
                     >
-                        Booking Requests
+                        Sign Up
                     </button>
-                )}
-                {userData.role === "worker" && (
-                    <button
-                        className='hidden md:block px-3 py-1.5 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] text-sm font-medium'
-                        onClick={() => navigate("/worker-onboarding")}
-                    >
-                        My Profile
-                    </button>
-                )}
-
-                <button onClick={() => navigate("/chats")} className='relative p-2 text-gray-500 hover:text-[#ff4d2d]'>
-                    <FaComment size={18} />
-                </button>
-                <button onClick={() => navigate("/notifications")} className='relative p-2 text-gray-500 hover:text-[#ff4d2d]'>
-                    <FaBell size={18} />
-                    {unreadCount > 0 && (
-                        <span className='absolute -top-0.5 -right-0.5 bg-[#ff4d2d] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center'>
-                            {unreadCount > 9 ? "9+" : unreadCount}
-                        </span>
-                    )}
-                </button>
-
-                <div
-                    className='w-[40px] h-[40px] rounded-full flex items-center justify-center bg-[#ff4d2d] text-white text-[18px] shadow-xl font-semibold cursor-pointer'
-                    onClick={() => setShowInfo(prev => !prev)}
-                >
-                    {userData?.fullName?.slice(0, 1)}
                 </div>
+            )}
 
-                {showInfo && (
-                    <div className='fixed top-[80px] right-[10px] w-[180px] bg-white shadow-2xl rounded-xl p-[20px] flex flex-col gap-[10px] z-[9999]'>
-                        <div className='text-[17px] font-semibold'>{userData.fullName}</div>
-                        <div className='text-xs text-gray-400 -mt-2 capitalize'>{userData.role}</div>
-                        {userData.role === "customer" && (
-                            <div className='text-[#ff4d2d] font-semibold cursor-pointer text-sm' onClick={() => navigate("/bookings")}>
-                                My Bookings
-                            </div>
+            {userData && (
+                <div className='flex items-center gap-4'>
+                    {userData.role === "customer" && (
+                        <button
+                            className='hidden md:block px-3 py-1.5 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] text-sm font-medium'
+                            onClick={() => navigate("/bookings")}
+                        >
+                            My Bookings
+                        </button>
+                    )}
+                    {userData.role === "worker" && (
+                        <button
+                            className='hidden md:block px-3 py-1.5 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] text-sm font-medium'
+                            onClick={() => navigate("/worker-bookings")}
+                        >
+                            Booking Requests
+                        </button>
+                    )}
+                    {userData.role === "worker" && (
+                        <button
+                            className='hidden md:block px-3 py-1.5 rounded-lg bg-[#ff4d2d]/10 text-[#ff4d2d] text-sm font-medium'
+                            onClick={() => navigate("/worker-onboarding")}
+                        >
+                            My Profile
+                        </button>
+                    )}
+
+                    <button onClick={() => navigate("/chats")} className='relative p-2 text-gray-500 hover:text-[#ff4d2d]'>
+                        <FaComment size={18} />
+                    </button>
+                    <button onClick={() => navigate("/notifications")} className='relative p-2 text-gray-500 hover:text-[#ff4d2d]'>
+                        <FaBell size={18} />
+                        {unreadCount > 0 && (
+                            <span className='absolute -top-0.5 -right-0.5 bg-[#ff4d2d] text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center'>
+                                {unreadCount > 9 ? "9+" : unreadCount}
+                            </span>
                         )}
-                        {userData.role === "worker" && (
-                            <div className='text-[#ff4d2d] font-semibold cursor-pointer text-sm' onClick={() => navigate("/worker-bookings")}>
-                                Booking Requests
-                            </div>
-                        )}
-                        {userData.role === "worker" && (
-                            <div className='text-[#ff4d2d] font-semibold cursor-pointer text-sm' onClick={() => navigate("/worker-onboarding")}>
-                                My Profile
-                            </div>
-                        )}
-                        <div className='text-[#ff4d2d] font-semibold cursor-pointer text-sm' onClick={handleLogOut}>Log Out</div>
+                    </button>
+
+                    <div
+                        className='w-[40px] h-[40px] rounded-full flex items-center justify-center bg-[#ff4d2d] text-white text-[18px] shadow-xl font-semibold cursor-pointer'
+                        onClick={() => setShowInfo(prev => !prev)}
+                    >
+                        {userData?.fullName?.slice(0, 1)}
                     </div>
-                )}
-            </div>
+
+                    {showInfo && (
+                        <div className='fixed top-[80px] right-[10px] w-[180px] bg-white shadow-2xl rounded-xl p-[20px] flex flex-col gap-[10px] z-[9999]'>
+                            <div className='text-[17px] font-semibold'>{userData.fullName}</div>
+                            <div className='text-xs text-gray-400 -mt-2 capitalize'>{userData.role}</div>
+                            {userData.role === "customer" && (
+                                <div className='text-[#ff4d2d] font-semibold cursor-pointer text-sm' onClick={() => navigate("/bookings")}>
+                                    My Bookings
+                                </div>
+                            )}
+                            {userData.role === "worker" && (
+                                <div className='text-[#ff4d2d] font-semibold cursor-pointer text-sm' onClick={() => navigate("/worker-bookings")}>
+                                    Booking Requests
+                                </div>
+                            )}
+                            {userData.role === "worker" && (
+                                <div className='text-[#ff4d2d] font-semibold cursor-pointer text-sm' onClick={() => navigate("/worker-onboarding")}>
+                                    My Profile
+                                </div>
+                            )}
+                            <div className='text-[#ff4d2d] font-semibold cursor-pointer text-sm' onClick={handleLogOut}>Log Out</div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

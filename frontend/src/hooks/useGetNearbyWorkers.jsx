@@ -12,7 +12,7 @@ function useGetNearbyWorkers(filters = {}) {
     const filterKey = JSON.stringify(filters)
 
     useEffect(() => {
-        if (!userData || userData.role !== "customer") return
+        if (userData && userData.role !== "customer") return // workers/admins don't browse this list
         if (!location?.lat || !location?.lon) return
 
         const fetchWorkers = async () => {

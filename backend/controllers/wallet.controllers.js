@@ -76,11 +76,15 @@ export const createDuePaymentOrder = async (req, res) => {
         if (!wallet || wallet.pendingCommission <= 0) {
             return res.status(400).json({ message: "no pending commission due" })
         }
-        const receipt = `d_${req.userId.slice(-8)}_${Date.now().toString().slice(-8)}`;
-        const order = await createRazorpayOrder(wallet.pendingCommission, receipt)
+        const order = await createRazorpayOrder(wallet.pendingCommission, `due_${req.userId}_${Date.now()}`)
         return res.status(201).json({ order, amount: wallet.pendingCommission })
     } catch (error) {
-        return res.status(500).json({ message: `create due payment order error1 ${error}` })
+        // Razorpay SDK rejects with a plain object ({statusCode, error:{description,...}}),
+        // not an Error instance, so `${error}` stringifies to "[object Object]". Pull the
+        // real reason out instead.
+        const reason = error?.error?.description || error?.message || JSON.stringify(error)
+        console.error("create due payment order error:", error)
+        return res.status(500).json({ message: `create due payment order error: ${reason}` })
     }
 }
 
