@@ -80,6 +80,8 @@ const bookingSchema = new mongoose.Schema({
 
     // ---- Pricing / payment (Phase 4) ----
     amount: { type: Number, default: 0 },
+    couponCode: { type: String, default: "" },
+    discountAmount: { type: Number, default: 0 },
     commissionPercent: { type: Number, default: 0 },
     commissionAmount: { type: Number, default: 0 },
     workerEarning: { type: Number, default: 0 },

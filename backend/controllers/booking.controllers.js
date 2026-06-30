@@ -1,6 +1,7 @@
 import Booking from "../models/booking.model.js"
 import WorkerProfile from "../models/workerProfile.model.js"
 import User from "../models/user.model.js"
+import Coupon from "../models/coupon.model.js"
 import { getEffectiveCommissionPercent } from "../utils/commission.js"
 import { sendBookingOtpMail } from "../utils/mail.js"
 import { settleOfflineCommission, creditOnlineEarning } from "../utils/walletEngine.js"
@@ -30,7 +31,7 @@ const PRICE_FIELD = { hourly: "hourlyRate", daily: "dailyRate" }
 export const createBooking = async (req, res) => {
     try {
         const customerId = req.userId
-        const { workerId, bookingType, schedule, address, paymentMethod, taskDetails } = req.body
+        const { workerId, bookingType, schedule, address, paymentMethod, taskDetails, couponCode } = req.body
 
         if (!["hourly", "daily", "task"].includes(bookingType)) {
             return res.status(400).json({ message: "bookingType must be hourly, daily, or task" })
@@ -66,6 +67,30 @@ export const createBooking = async (req, res) => {
             amount = rate * units
         }
 
+        // Coupon discounts the service fee only - never the task item budget.
+        let discountAmount = 0
+        let appliedCouponCode = ""
+        if (couponCode) {
+            const coupon = await Coupon.findOne({ code: couponCode.toUpperCase().trim() })
+            if (!coupon || !coupon.isActive) {
+                return res.status(400).json({ message: "invalid or inactive coupon code" })
+            }
+            if (coupon.expiresAt && coupon.expiresAt < new Date()) {
+                return res.status(400).json({ message: "this coupon has expired" })
+            }
+            if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) {
+                return res.status(400).json({ message: "this coupon has reached its usage limit" })
+            }
+            discountAmount = coupon.discountType === "PERCENT"
+                ? Math.round((amount * coupon.discountValue) / 100)
+                : coupon.discountValue
+            discountAmount = Math.min(discountAmount, amount)
+            amount = amount - discountAmount
+            appliedCouponCode = coupon.code
+            coupon.usedCount += 1
+            await coupon.save()
+        }
+
         const commissionPercent = await getEffectiveCommissionPercent(workerProfile.category)
         const commissionAmount = Math.round((amount * commissionPercent) / 100)
         const workerEarning = amount - commissionAmount
@@ -82,6 +107,8 @@ export const createBooking = async (req, res) => {
             taskDetails: bookingType === "task" ? taskDetails : undefined,
             paymentMethod: paymentMethod === "online" ? "online" : "offline",
             amount,
+            couponCode: appliedCouponCode,
+            discountAmount,
             commissionPercent,
             commissionAmount,
             workerEarning,

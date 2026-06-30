@@ -165,8 +165,9 @@ export const adminListWorkers = async (req, res) => {
     } catch (error) {
         return res.status(500).json({ message: `admin list workers error ${error}` })
     }
-} 
-// Filters: category, radius (km), rating,
+}
+
+// Public worker search: nearby + isSearchable only. Filters: category, radius (km), rating,
 // price range, sort. Only ever returns isSearchable workers - the flag that
 // Phase 4 will gate behind ACTIVE status + verified KYC + paid deposit.
 export const searchNearbyWorkers = async (req, res) => {
@@ -223,7 +224,7 @@ export const searchNearbyWorkers = async (req, res) => {
             { $unwind: "$category" },
             {
                 $project: {
-                    user: { fullName: "$user.fullName" },
+                    user: { _id: "$user._id", fullName: "$user.fullName" },
                     category: { name: "$category.name", group: "$category.group", icon: "$category.icon" },
                     profileImage: 1,
                     experienceYears: 1,

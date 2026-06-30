@@ -15,7 +15,7 @@ function CustomerDashboard() {
 
     useGetCategories()
     useGetNearbyWorkers(filters)
-
+    console.log(nearbyWorkers, "nearbyWorkers")
     const handleCategoryClick = (categoryName) => {
         const match = dbCategories.find(c => c.name === categoryName)
         setFilters(prev => ({ ...prev, category: match?._id }))

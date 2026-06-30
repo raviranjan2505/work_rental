@@ -67,6 +67,9 @@ export const signIn=async (req,res) => {
      if(!isMatch){
          return res.status(400).json({message:"incorrect Password"})
      }
+     if(user.isBlocked){
+         return res.status(403).json({message:"your account has been blocked by the admin team. Contact support for help."})
+     }
 
         const token=await genToken(user._id)
         res.cookie("token",token,{

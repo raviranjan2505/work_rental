@@ -1,7 +1,7 @@
 import { createSlice, current } from "@reduxjs/toolkit";
 
 const mapSlice=createSlice({
-    name:"user",
+    name:"map",
     initialState:{
        location:{
         lat:null,

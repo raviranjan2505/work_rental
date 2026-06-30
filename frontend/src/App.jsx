@@ -20,6 +20,17 @@ import ChatPage from './pages/ChatPage'
 import NotificationsPage from './pages/NotificationsPage'
 import Nav from './components/Nav'
 
+import AdminLayout from './admin/AdminLayout'
+import AdminDashboardPage from './pages/admin/AdminDashboardPage'
+import AdminWorkersPage from './pages/admin/AdminWorkersPage'
+import AdminCustomersPage from './pages/admin/AdminCustomersPage'
+import AdminBookingsPage from './pages/admin/AdminBookingsPage'
+import AdminCategoriesPage from './pages/admin/AdminCategoriesPage'
+import AdminWithdrawalsPage from './pages/admin/AdminWithdrawalsPage'
+import AdminReviewsPage from './pages/admin/AdminReviewsPage'
+import AdminCouponsPage from './pages/admin/AdminCouponsPage'
+import AdminSettingsPage from './pages/admin/AdminSettingsPage'
+
 import useGetCurrentUser from './hooks/useGetCurrentUser'
 import useGetCity from './hooks/useGetCity'
 import useUpdateLocation from './hooks/useUpdateLocation'
@@ -52,7 +63,7 @@ function App() {
 
     return (
         <>
-            {userData && <Nav />}
+            {userData && userData.role !== "admin" && <Nav />}
             <Routes>
                 <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
                 <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />
@@ -69,6 +80,18 @@ function App() {
                 <Route path='/chats' element={userData ? <ChatListPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/chat/:bookingId' element={userData ? <ChatPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/notifications' element={userData ? <NotificationsPage /> : <Navigate to={"/signin"} />} />
+
+                <Route path='/admin' element={userData?.role === "admin" ? <AdminLayout /> : <Navigate to={"/signin"} />}>
+                    <Route index element={<AdminDashboardPage />} />
+                    <Route path='workers' element={<AdminWorkersPage />} />
+                    <Route path='customers' element={<AdminCustomersPage />} />
+                    <Route path='bookings' element={<AdminBookingsPage />} />
+                    <Route path='categories' element={<AdminCategoriesPage />} />
+                    <Route path='withdrawals' element={<AdminWithdrawalsPage />} />
+                    <Route path='reviews' element={<AdminReviewsPage />} />
+                    <Route path='coupons' element={<AdminCouponsPage />} />
+                    <Route path='settings' element={<AdminSettingsPage />} />
+                </Route>
             </Routes>
         </>
     )

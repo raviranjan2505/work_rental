@@ -24,8 +24,8 @@ export const createDepositOrder = async (req, res) => {
         if (remaining <= 0) {
             return res.status(400).json({ message: "deposit already fully paid" })
         }
-
-        const order = await createRazorpayOrder(remaining, `deposit_${req.userId}_${Date.now()}`)
+        const receipt = `d_${req.userId.slice(-8)}_${Date.now().toString().slice(-8)}`;
+        const order = await createRazorpayOrder(remaining, receipt)
         const deposit = await Deposit.create({
             worker: req.userId,
             amount: remaining,

@@ -17,6 +17,8 @@ import commissionRouter from "./routes/commission.routes.js"
 import chatRouter from "./routes/chat.routes.js"
 import reviewRouter from "./routes/review.routes.js"
 import notificationRouter from "./routes/notification.routes.js"
+import adminRouter from "./routes/admin.routes.js"
+import couponRouter from "./routes/coupon.routes.js"
 import { runGracePeriodSweep } from "./utils/walletEngine.js"
 import http from "http"
 import { Server } from "socket.io"
@@ -27,7 +29,7 @@ const server=http.createServer(app)
 
 const io=new Server(server,{
    cors:{
-    origin:"http://localhost:5173",
+    origin:"http://localhost:5174",
     credentials:true,
     methods:['POST','GET']
 }
@@ -39,7 +41,7 @@ app.set("io",io)
 
 const port=process.env.PORT || 5000
 app.use(cors({
-    origin:"http://localhost:5173",
+    origin:"http://localhost:5174",
     credentials:true
 }))
 app.use(express.json())
@@ -56,6 +58,8 @@ app.use("/api/commission",commissionRouter)
 app.use("/api/chat",chatRouter)
 app.use("/api/review",reviewRouter)
 app.use("/api/notification",notificationRouter)
+app.use("/api/admin",adminRouter)
+app.use("/api/coupon",couponRouter)
 
 socketHandler(io)
 server.listen(port,()=>{

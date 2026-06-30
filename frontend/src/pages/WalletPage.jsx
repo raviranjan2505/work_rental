@@ -50,6 +50,7 @@ function WalletPage() {
         setLoading(true)
         try {
             const orderRes = await axios.post(`${serverUrl}/api/wallet/due/create-order`, {}, { withCredentials: true })
+            console.log("orderRes", orderRes.data)
             const { order, amount } = orderRes.data
             await openRazorpayCheckout({
                 order,

@@ -12,7 +12,7 @@ function WorkerCard({ worker }) {
     const navigate = useNavigate()
     return (
         <div
-            onClick={() => navigate(`/worker/${worker._id}`)}
+            onClick={() => navigate(`/worker/${worker.user?._id}`)}
             className='bg-white rounded-xl border border-[#eee] shadow-sm hover:shadow-md transition-shadow cursor-pointer p-4 flex gap-4'
         >
             <div className='relative w-[64px] h-[64px] shrink-0'>

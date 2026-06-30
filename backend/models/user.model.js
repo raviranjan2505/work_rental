@@ -42,6 +42,11 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    // Admin moderation - blocked users can't sign in (Phase 7)
+    isBlocked: {
+        type: Boolean,
+        default: false
+    },
     // Current live location. For workers, WorkerProfile keeps its own
     // location/2dsphere index which is what nearby-search & tracking use.
     location: {
