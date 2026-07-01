@@ -8,6 +8,7 @@ import {
     getWorkerById,
     updateAvailability,
     searchNearbyWorkers,
+    searchWorkers,
     adminVerifyKyc,
     adminSetWorkerStatus,
     adminListWorkers
@@ -31,6 +32,7 @@ workerRouter.get("/profile/me", isAuth, authorize("worker"), getMyProfile)
 workerRouter.patch("/availability", isAuth, authorize("worker"), updateAvailability)
 // IMPORTANT: keep these above "/:workerId" or they get swallowed as an id param
 workerRouter.get("/search/nearby", searchNearbyWorkers)
+workerRouter.get("/search", searchWorkers)           // smart text search – public
 workerRouter.get("/admin/all", isAuth, authorize("admin"), adminListWorkers)
 workerRouter.patch("/admin/:workerProfileId/kyc", isAuth, authorize("admin"), adminVerifyKyc)
 workerRouter.patch("/admin/:workerProfileId/status", isAuth, authorize("admin"), adminSetWorkerStatus)

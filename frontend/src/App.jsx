@@ -19,6 +19,7 @@ import ChatListPage from './pages/ChatListPage'
 import ChatPage from './pages/ChatPage'
 import NotificationsPage from './pages/NotificationsPage'
 import Nav from './components/Nav'
+import MobileBottomNav from './components/MobileBottomNav'
 
 import AdminLayout from './admin/AdminLayout'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
@@ -63,7 +64,8 @@ function App() {
 
     return (
         <>
-            {(!userData || userData.role !== "admin") && <Nav />}
+            {(!userData || userData.role !== 'admin') && <Nav />}
+            {(!userData || userData.role !== 'admin') && <MobileBottomNav />}
             <Routes>
                 <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
                 <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />

@@ -167,6 +167,97 @@ export const adminListWorkers = async (req, res) => {
     }
 }
 
+// ─── Smart text search ────────────────────────────────────────────────────────
+// GET /api/worker/search?q=elec&lat=...&lng=...&limit=12
+// Searches across: worker name, category name, skills.
+// Sorted: verified first → rating → completed jobs.
+export const searchWorkers = async (req, res) => {
+    try {
+        const { q, lat, lng, limit = 12 } = req.query
+        if (!q || !q.trim()) {
+            return res.status(400).json({ message: "query (q) is required" })
+        }
+
+        const regex = new RegExp(q.trim(), "i")
+
+        // Find categories whose names match so we can also search by categoryId
+        const matchingCategories = await Category.find({ name: regex }).select("_id")
+        const categoryIds = matchingCategories.map(c => c._id)
+
+        const pipeline = [
+            // ── join user + category first so we can search on their fields ──
+            { $lookup: { from: "users", localField: "user", foreignField: "_id", as: "user" } },
+            { $unwind: "$user" },
+            { $lookup: { from: "categories", localField: "category", foreignField: "_id", as: "category" } },
+            { $unwind: "$category" },
+            // ── text match across all searchable fields ──
+            {
+                $match: {
+                    isSearchable: true,
+                    status: "ACTIVE",
+                    $or: [
+                        { "user.fullName": regex },
+                        { "category.name": regex },
+                        { skills: regex },
+                        ...(categoryIds.length ? [{ category: { $in: categoryIds } }] : [])
+                    ]
+                }
+            },
+            // ── verified-first sort helper ──
+            {
+                $addFields: {
+                    _verifiedScore: { $cond: [{ $eq: ["$kyc.isVerified", true] }, 1, 0] }
+                }
+            },
+            { $sort: { _verifiedScore: -1, "rating.average": -1, completedJobs: -1 } },
+            { $limit: Number(limit) },
+            {
+                $project: {
+                    user: { _id: "$user._id", fullName: "$user.fullName" },
+                    category: { name: "$category.name", group: "$category.group" },
+                    profileImage: 1,
+                    experienceYears: 1,
+                    skills: 1,
+                    hourlyRate: 1,
+                    rating: 1,
+                    completedJobs: 1,
+                    isOnline: 1,
+                    "kyc.isVerified": 1,
+                    location: 1
+                }
+            }
+        ]
+
+        // If location provided, add distance computation after the pipeline
+        const workers = await WorkerProfile.aggregate(pipeline)
+
+        // Optionally compute distances client-side if lat/lng supplied
+        let results = workers
+        if (lat && lng) {
+            const R = 6371000 // Earth radius in metres
+            const φ1 = Number(lat) * Math.PI / 180
+            results = workers.map(w => {
+                const [wLng, wLat] = w.location?.coordinates || [0, 0]
+                const φ2 = wLat * Math.PI / 180
+                const Δφ = (wLat - Number(lat)) * Math.PI / 180
+                const Δλ = (wLng - Number(lng)) * Math.PI / 180
+                const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2
+                const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+                return { ...w, distanceInMeters: Math.round(dist) }
+            })
+        }
+
+        // ── category suggestions (for the dropdown) ──
+        const categorySuggestions = await Category.find({ name: regex, isActive: true })
+            .select("name group")
+            .limit(5)
+
+        return res.status(200).json({ workers: results, categorySuggestions })
+    } catch (error) {
+        return res.status(500).json({ message: `search workers error: ${error?.message || error}` })
+    }
+}
+
 // Public worker search: nearby + isSearchable only. Filters: category, radius (km), rating,
 // price range, sort. Only ever returns isSearchable workers - the flag that
 // Phase 4 will gate behind ACTIVE status + verified KYC + paid deposit.
