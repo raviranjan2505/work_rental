@@ -1,7 +1,7 @@
 import Wallet from "../models/wallet.model.js"
 import WalletTransaction from "../models/walletTransaction.model.js"
 import Withdrawal from "../models/withdrawal.model.js"
-import { createRazorpayOrder, verifyRazorpaySignature } from "../utils/razorpay.js"
+import { createRazorpayOrder, getRazorpayErrorMessage, verifyRazorpaySignature } from "../utils/razorpay.js"
 import { applyDuePaymentClearance } from "../utils/walletEngine.js"
 
 export const getMyWallet = async (req, res) => {
@@ -82,7 +82,7 @@ export const createDuePaymentOrder = async (req, res) => {
         // Razorpay SDK rejects with a plain object ({statusCode, error:{description,...}}),
         // not an Error instance, so `${error}` stringifies to "[object Object]". Pull the
         // real reason out instead.
-        const reason = error?.error?.description || error?.message || JSON.stringify(error)
+        const reason = getRazorpayErrorMessage(error)
         console.error("create due payment order error:", error)
         return res.status(500).json({ message: `create due payment order error: ${reason}` })
     }

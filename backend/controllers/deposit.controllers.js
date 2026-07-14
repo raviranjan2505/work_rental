@@ -1,7 +1,7 @@
 import Deposit from "../models/deposit.model.js"
 import Wallet from "../models/wallet.model.js"
 import { getSettings, applyDepositPayment } from "../utils/walletEngine.js"
-import { createRazorpayOrder, verifyRazorpaySignature } from "../utils/razorpay.js"
+import { createRazorpayOrder, getRazorpayErrorMessage, verifyRazorpaySignature } from "../utils/razorpay.js"
 
 export const getDepositConfig = async (req, res) => {
     try {
@@ -20,7 +20,12 @@ export const createDepositOrder = async (req, res) => {
     try {
         const settings = await getSettings()
         const wallet = await Wallet.findOne({ worker: req.userId })
-        const remaining = Math.max(0, settings.securityDepositAmount - (wallet?.securityDepositBalance || 0))
+        const requiredAmount = Number(settings.securityDepositAmount)
+        if (!Number.isFinite(requiredAmount) || requiredAmount <= 0) {
+            return res.status(400).json({ message: "security deposit amount is not configured correctly" })
+        }
+
+        const remaining = Math.max(0, requiredAmount - (wallet?.securityDepositBalance || 0))
         if (remaining <= 0) {
             return res.status(400).json({ message: "deposit already fully paid" })
         }
@@ -36,7 +41,9 @@ export const createDepositOrder = async (req, res) => {
 
         return res.status(201).json({ order, depositId: deposit._id })
     } catch (error) {
-        return res.status(500).json({ message: `create deposit order error ${error}` })
+        const reason = getRazorpayErrorMessage(error)
+        console.error("create deposit order error:", error)
+        return res.status(500).json({ message: `create deposit order error: ${reason}` })
     }
 }
 

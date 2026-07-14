@@ -3,15 +3,7 @@ import Order from "../models/order.model.js"
 import Shop from "../models/shop.model.js"
 import User from "../models/user.model.js"
 import { sendDeliveryOtpMail } from "../utils/mail.js"
-import RazorPay from "razorpay"
-import dotenv from "dotenv"
-import { count } from "console"
-
-dotenv.config()
-let instance = new RazorPay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+import { getRazorpayClient, getRazorpayErrorMessage } from "../utils/razorpay.js"
 
 export const placeOrder = async (req, res) => {
     try {
@@ -55,7 +47,7 @@ export const placeOrder = async (req, res) => {
         ))
 
         if (paymentMethod == "online") {
-            const razorOrder = await instance.orders.create({
+            const razorOrder = await getRazorpayClient().orders.create({
                 amount: Math.round(totalAmount * 100),
                 currency: 'INR',
                 receipt: `receipt_${Date.now()}`
@@ -113,14 +105,16 @@ export const placeOrder = async (req, res) => {
 
         return res.status(201).json(newOrder)
     } catch (error) {
-        return res.status(500).json({ message: `place order error ${error}` })
+        const reason = getRazorpayErrorMessage(error)
+        console.error("place order error:", error)
+        return res.status(500).json({ message: `place order error: ${reason}` })
     }
 }
 
 export const verifyPayment = async (req, res) => {
     try {
         const { razorpay_payment_id, orderId } = req.body
-        const payment = await instance.payments.fetch(razorpay_payment_id)
+        const payment = await getRazorpayClient().payments.fetch(razorpay_payment_id)
         if (!payment || payment.status != "captured") {
             return res.status(400).json({ message: "payment not captured" })
         }
@@ -161,7 +155,9 @@ export const verifyPayment = async (req, res) => {
         return res.status(200).json(order)
 
     } catch (error) {
-        return res.status(500).json({ message: `verify payment  error ${error}` })
+        const reason = getRazorpayErrorMessage(error)
+        console.error("verify payment error:", error)
+        return res.status(500).json({ message: `verify payment error: ${reason}` })
     }
 }
 
