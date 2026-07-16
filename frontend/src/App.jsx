@@ -7,14 +7,14 @@ import SignUp from './pages/SignUp'
 import SignIn from './pages/SignIn'
 import ForgotPassword from './pages/ForgotPassword'
 import Home from './pages/Home'
-import WorkerOnboarding from './pages/WorkerOnboarding'
+import WorkerOnboarding from './pages/worker/WorkerOnboarding'
 import WorkerProfilePage from './pages/WorkerProfilePage'
 import BookWorkerPage from './pages/BookWorkerPage'
 import BookingDetailPage from './pages/BookingDetailPage'
 import MyBookingsPage from './pages/MyBookingsPage'
-import WorkerBookingsPage from './pages/WorkerBookingsPage'
-import DepositPage from './pages/DepositPage'
-import WalletPage from './pages/WalletPage'
+import WorkerBookingsPage from './pages/worker/WorkerBookingsPage'
+import DepositPage from './pages/worker/DepositPage'
+import WalletPage from './pages/worker/WalletPage'
 import ChatListPage from './pages/ChatListPage'
 import ChatPage from './pages/ChatPage'
 import NotificationsPage from './pages/NotificationsPage'
@@ -67,8 +67,8 @@ function App() {
 
     return (
         <>
-            {(!userData || userData.role !== 'admin') && <Nav />}
-            {(!userData || userData.role !== 'admin') && <MobileBottomNav />}
+            {userData?.role !== 'worker' && (!userData || userData.role !== 'admin') && <Nav />}
+            {userData?.role !== 'worker' && (!userData || userData.role !== 'admin') && <MobileBottomNav />}
             <Routes>
                 <Route path='/signup' element={!userData ? <SignUp /> : <Navigate to={"/"} />} />
                 <Route path='/signin' element={!userData ? <SignIn /> : <Navigate to={"/"} />} />

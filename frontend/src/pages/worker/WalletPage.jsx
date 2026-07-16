@@ -1,17 +1,18 @@
 import React, { useState } from 'react'
 import axios from 'axios'
 import { useSelector } from 'react-redux'
-import { FaWallet, FaArrowDown, FaExchangeAlt, FaCheckCircle, FaTimesCircle, FaHourglassHalf } from 'react-icons/fa'
+import { FaWallet, FaArrowDown, FaExchangeAlt, FaCheckCircle, FaTimesCircle, FaHourglassHalf, FaShieldAlt } from 'react-icons/fa'
 import { MdArrowUpward, MdArrowDownward } from 'react-icons/md'
 import { ClipLoader } from 'react-spinners'
-import WorkerLayout from '../worker/WorkerLayout'
-import { serverUrl } from '../App'
-import useGetWallet from '../hooks/useGetWallet'
-import { openRazorpayCheckout } from '../utils/razorpayCheckout'
+import WorkerLayout from '../../worker/WorkerLayout'
+import { serverUrl } from '../../App'
+import useGetWallet from '../../hooks/useGetWallet'
+import { openRazorpayCheckout } from '../../utils/razorpayCheckout'
 
 const TXN_LABELS = {
     EARNING:          { label: 'Booking Earning',       icon: MdArrowUpward,   color: 'text-green-600', bg: 'bg-green-50'  },
     COMMISSION_DEDUCT:{ label: 'Commission Deducted',   icon: MdArrowDownward, color: 'text-red-500',   bg: 'bg-red-50'    },
+    COMMISSION_DEDUCTION:{ label: 'Commission Deducted', icon: MdArrowDownward, color: 'text-red-500', bg: 'bg-red-50' },
     COMMISSION_PAID:  { label: 'Commission Cleared',    icon: FaCheckCircle,   color: 'text-blue-600',  bg: 'bg-blue-50'   },
     DEPOSIT_PAID:     { label: 'Deposit Paid',          icon: FaCheckCircle,   color: 'text-purple-600',bg: 'bg-purple-50' },
     WITHDRAWAL:       { label: 'Withdrawal',            icon: MdArrowDownward, color: 'text-orange-600',bg: 'bg-orange-50' },
@@ -105,6 +106,28 @@ export default function WalletPage() {
         )
     }
 
+    const securityDeposit = Number(wallet?.securityDepositBalance || 0)
+    const totalCommissionDeducted = Number(wallet?.totalCommissionDeducted || 0)
+    const remainingDepositBalance = wallet?.remainingDepositBalance !== undefined
+        ? Number(wallet.remainingDepositBalance)
+        : securityDeposit - totalCommissionDeducted
+    const minimumRequiredDeposit = Number(wallet?.minimumRequiredDeposit || 0)
+    const pendingCommission = Number(wallet?.pendingCommission || 0)
+
+    const depositWarning = remainingDepositBalance <= 0
+        ? {
+            type: 'red',
+            message: 'Your account is temporarily inactive because your security deposit has been exhausted.'
+        }
+        : remainingDepositBalance < minimumRequiredDeposit
+            ? {
+                type: 'yellow',
+                message: 'Your security deposit is running low. Please recharge to continue receiving bookings.'
+            }
+            : null
+
+    const formatCurrency = value => `₹${Number(value || 0).toLocaleString('en-IN')}`
+
     return (
         <WorkerLayout>
             <div className='mb-6'>
@@ -120,18 +143,43 @@ export default function WalletPage() {
                 <BalanceCard icon={FaCheckCircle} label='Security Deposit'      value={`₹${wallet.securityDepositBalance}`} color='text-purple-600' bg='bg-purple-50' />
             </div>
 
+            <div className='bg-white rounded-xl border border-[#eee] p-5 mb-6'>
+                <div className='flex items-start justify-between gap-3 mb-4'>
+                    <div>
+                        <p className='font-bold text-gray-800 flex items-center gap-2'>
+                            <FaShieldAlt size={14} className='text-[#ff4d2d]' />
+                            Deposit & Commission Summary
+                        </p>
+                        <p className='text-sm text-gray-400 mt-0.5'>Track your security deposit health and commission deductions</p>
+                    </div>
+                </div>
+
+                <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
+                    <BalanceCard icon={FaShieldAlt} label='Security Deposit' value={formatCurrency(securityDeposit)} color='text-purple-600' bg='bg-purple-50' />
+                    <BalanceCard icon={FaArrowDown} label='Total Commission Deducted' value={formatCurrency(totalCommissionDeducted)} color='text-red-500' bg='bg-red-50' />
+                    <BalanceCard icon={FaCheckCircle} label='Remaining Deposit Balance' value={formatCurrency(remainingDepositBalance)} color='text-green-600' bg='bg-green-50' />
+                    <BalanceCard icon={FaHourglassHalf} label='Pending Commission' value={formatCurrency(pendingCommission)} color='text-orange-600' bg='bg-orange-50' />
+                </div>
+
+                {depositWarning && (
+                    <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${depositWarning.type === 'red' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                        <p className='font-semibold'>{depositWarning.message}</p>
+                    </div>
+                )}
+            </div>
+
             {/* pending commission */}
-            {wallet.pendingCommission > 0 && (
+            {pendingCommission > 0 && (
                 <div className='bg-red-50 border border-red-200 rounded-xl p-5 mb-6 flex flex-col md:flex-row md:items-center gap-4'>
                     <div className='flex-1'>
-                        <p className='font-bold text-red-700'>Commission Due: ₹{wallet.pendingCommission}</p>
+                        <p className='font-bold text-red-700'>Commission Due: {formatCurrency(pendingCommission)}</p>
                         <p className='text-sm text-red-600 mt-0.5 opacity-80'>
-                            Your profile is {wallet.pendingCommission > 0 ? 'at risk of suspension' : 'suspended'}. Clear this to stay visible.
+                            Your profile is {pendingCommission > 0 ? 'at risk of suspension' : 'suspended'}. Clear this to stay visible.
                         </p>
                     </div>
                     <button onClick={handlePayDue} disabled={loading}
                         className='bg-red-600 hover:bg-red-700 text-white font-bold px-6 py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 min-w-[160px]'>
-                        {loading ? <ClipLoader size={16} color='white' /> : `Pay ₹${wallet.pendingCommission} Now`}
+                        {loading ? <ClipLoader size={16} color='white' /> : `Pay ${formatCurrency(pendingCommission)} Now`}
                     </button>
                 </div>
             )}

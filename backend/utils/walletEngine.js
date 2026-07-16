@@ -2,7 +2,26 @@ import Settings from "../models/settings.model.js"
 import Wallet from "../models/wallet.model.js"
 import WorkerProfile from "../models/workerProfile.model.js"
 import WalletTransaction from "../models/walletTransaction.model.js"
+import Booking from "../models/booking.model.js"
 import { pushNotification } from "./notify.js"
+
+const createDefaultWallet = (workerUserId) => ({
+    worker: workerUserId,
+    totalEarnings: 0,
+    availableBalance: 0,
+    securityDepositBalance: 0,
+    pendingCommission: 0,
+    withdrawableBalance: 0,
+    totalWithdrawn: 0
+})
+
+const ensureWallet = async (workerUserId) => {
+    let wallet = await Wallet.findOne({ worker: workerUserId })
+    if (!wallet) {
+        wallet = await Wallet.create(createDefaultWallet(workerUserId))
+    }
+    return wallet
+}
 
 export const getSettings = async () => {
     let settings = await Settings.findOne({ key: "GLOBAL" })
@@ -19,10 +38,10 @@ export const getSettings = async () => {
 //     deposit >= required           -> ACTIVE
 //   otherwise                       -> PENDING_DEPOSIT
 // KYC/availability are handled separately by WorkerProfile's isSearchable hook.
-export const recomputeWorkerStatus = async (workerUserId, io = null) => {
+export const recomputeWorkerStatus = async (workerUserId, io = null, session = null) => {
     const [wallet, profile, settings] = await Promise.all([
-        Wallet.findOne({ worker: workerUserId }),
-        WorkerProfile.findOne({ user: workerUserId }),
+        Wallet.findOne({ worker: workerUserId }).session(session),
+        WorkerProfile.findOne({ user: workerUserId }).session(session),
         getSettings()
     ])
     if (!wallet || !profile) return profile
@@ -41,7 +60,7 @@ export const recomputeWorkerStatus = async (workerUserId, io = null) => {
             : "PENDING_DEPOSIT"
     }
 
-    await profile.save()
+    await profile.save({ session })
 
     if (previousStatus !== "PAYMENT_DUE" && profile.status === "PAYMENT_DUE") {
         await pushNotification(io, workerUserId, {
@@ -64,8 +83,11 @@ export const recomputeWorkerStatus = async (workerUserId, io = null) => {
 const logTransaction = (worker, booking, type, amount, balanceAfter, description) =>
     WalletTransaction.create({ worker, booking, type, amount, balanceAfter, description })
 
+const isCashPaymentMethod = (paymentMethod) => ["offline", "cash", "Cash"].includes(paymentMethod)
+
 // Worker paid their security deposit (in full, via Razorpay).
 export const applyDepositPayment = async (workerUserId, amount, io = null) => {
+    await ensureWallet(workerUserId)
     const wallet = await Wallet.findOneAndUpdate(
         { worker: workerUserId },
         { $inc: { securityDepositBalance: amount } },
@@ -78,32 +100,53 @@ export const applyDepositPayment = async (workerUserId, amount, io = null) => {
 // Offline booking completed: platform never touched the cash, so commission
 // owed gets pulled out of the worker's security deposit. If the deposit can't
 // cover it, the shortfall becomes pendingCommission (-> PAYMENT_DUE).
-export const settleOfflineCommission = async (workerUserId, bookingId, commissionAmount, bookingAmount, io = null) => {
-    const wallet = await Wallet.findOne({ worker: workerUserId })
-    if (!wallet) return
+export const settleOfflineCommission = async (workerUserId, bookingId, commissionAmount, bookingAmount, io = null, session = null) => {
+    try {
+        const booking = await Booking.findById(bookingId)
+        if (!booking) return null
 
-    wallet.totalEarnings += bookingAmount // informational - worker already holds this cash
+        if (booking.commissionSettled || !isCashPaymentMethod(booking.paymentMethod)) return null
 
-    const deductFromDeposit = Math.min(wallet.securityDepositBalance, commissionAmount)
-    const shortfall = commissionAmount - deductFromDeposit
+        let wallet = await ensureWallet(workerUserId)
 
-    wallet.securityDepositBalance -= deductFromDeposit
-    if (shortfall > 0) {
-        wallet.pendingCommission += shortfall
+        wallet.totalEarnings += bookingAmount // informational - worker already holds this cash
+
+        const depositBalanceBefore = Number(wallet.securityDepositBalance || 0)
+        const deductFromDeposit = Math.min(depositBalanceBefore, Number(commissionAmount || 0))
+        const shortfall = Math.max(0, Number(commissionAmount || 0) - deductFromDeposit)
+
+        wallet.securityDepositBalance = Math.max(0, depositBalanceBefore - deductFromDeposit)
+        if (shortfall > 0) {
+            wallet.pendingCommission = Number(wallet.pendingCommission || 0) + shortfall
+        }
+        await wallet.save()
+
+        if (deductFromDeposit > 0) {
+            await WalletTransaction.create({
+                worker: workerUserId,
+                booking: bookingId,
+                type: "COMMISSION_DEDUCTION",
+                amount: deductFromDeposit,
+                balanceAfter: wallet.securityDepositBalance,
+                description: "Commission deducted from deposit (cash booking)"
+            })
+        }
+
+        booking.commissionSettled = true
+        booking.commissionSettledAt = new Date()
+        await booking.save()
+
+        await recomputeWorkerStatus(workerUserId, io, null)
+        return wallet
+    } catch (error) {
+        throw error
     }
-    await wallet.save()
-
-    if (deductFromDeposit > 0) {
-        await logTransaction(workerUserId, bookingId, "COMMISSION_DEDUCT", deductFromDeposit, wallet.securityDepositBalance, "Commission deducted from deposit (offline booking)")
-    }
-
-    await recomputeWorkerStatus(workerUserId, io)
-    return wallet
 }
 
 // Online booking, paid through the gateway: commission auto-deducted at the
 // source, worker is credited the remainder as withdrawable cash.
 export const creditOnlineEarning = async (workerUserId, bookingId, bookingAmount, workerEarning) => {
+    await ensureWallet(workerUserId)
     const wallet = await Wallet.findOneAndUpdate(
         { worker: workerUserId },
         {
@@ -121,7 +164,7 @@ export const creditOnlineEarning = async (workerUserId, bookingId, bookingAmount
 
 // Worker pays off pendingCommission to lift PAYMENT_DUE/SUSPENDED.
 export const applyDuePaymentClearance = async (workerUserId, amount, io = null) => {
-    const wallet = await Wallet.findOne({ worker: workerUserId })
+    const wallet = await ensureWallet(workerUserId)
     if (!wallet) return
     wallet.pendingCommission = Math.max(0, wallet.pendingCommission - amount)
     await wallet.save()

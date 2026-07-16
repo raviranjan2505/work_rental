@@ -189,7 +189,7 @@ export default function AllWorkersPage() {
         radius:     '10',
         sort:       'distance',
         rateType:   'hourly',
-    })  
+    })    
     const [localSearch, setLocalSearch] = useState('')   // client-side name filter
     const [showFilters, setShowFilters] = useState(false) // mobile filter panel
 

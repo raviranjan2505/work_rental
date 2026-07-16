@@ -2,8 +2,8 @@ import React, { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { FaCalendarCheck, FaArrowRight, FaFilter } from 'react-icons/fa'
-import WorkerLayout from '../worker/WorkerLayout'
-import useGetAssignedBookings from '../hooks/useGetAssignedBookings'
+import WorkerLayout from '../../worker/WorkerLayout'
+import useGetAssignedBookings from '../../hooks/useGetAssignedBookings'
 
 const TABS = ['ALL', 'PENDING', 'CONFIRMED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']
 

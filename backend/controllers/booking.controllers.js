@@ -345,12 +345,13 @@ export const verifyCompletionOtp = async (req, res) => {
         await WorkerProfile.findOneAndUpdate({ user: booking.worker }, { $inc: { completedJobs: 1 } })
 
         const io = req.app.get("io")
+        const isCashBooking = ["offline", "cash", "Cash"].includes(booking.paymentMethod)
 
-        // Offline jobs: cash already changed hands in person, so commission is
-        // owed to the platform right now - pull it from the worker's deposit
+        // Offline/cash jobs: the customer already paid the worker in person, so
+        // commission is owed to the platform right now - pull it from the worker's deposit
         // (or queue it as pendingCommission if the deposit can't cover it).
         // Online jobs settle via createBookingPaymentOrder/verifyBookingPayment instead.
-        if (booking.paymentMethod === "offline") {
+        if (isCashBooking) {
             await settleOfflineCommission(booking.worker, booking._id, booking.commissionAmount, booking.amount, io)
         }
 

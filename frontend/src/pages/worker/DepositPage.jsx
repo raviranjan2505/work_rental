@@ -2,12 +2,12 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { FaShieldAlt, FaCheckCircle, FaLock, FaArrowRight } from 'react-icons/fa'
+import { FaShieldAlt, FaCheckCircle, FaLock, FaArrowRight, FaArrowDown, FaHourglassHalf } from 'react-icons/fa'
 import { ClipLoader } from 'react-spinners'
-import WorkerLayout from '../worker/WorkerLayout'
-import { serverUrl } from '../App'
-import { openRazorpayCheckout } from '../utils/razorpayCheckout'
-import { setMyWorkerProfile } from '../redux/workerSlice'
+import WorkerLayout from '../../worker/WorkerLayout'
+import { serverUrl } from '../../App'
+import { openRazorpayCheckout } from '../../utils/razorpayCheckout'
+import { setMyWorkerProfile } from '../../redux/workerSlice'
 
 export default function DepositPage() {
     const { userData } = useSelector(s => s.user)
@@ -27,6 +27,28 @@ export default function DepositPage() {
     const remaining = config ? Math.max(0, config.requiredAmount - config.currentBalance) : 0
     const paidPct   = config ? Math.min(100, Math.round((config.currentBalance / config.requiredAmount) * 100)) : 0
     const fullyPaid = remaining === 0
+
+    const securityDeposit = Number(config?.currentBalance || 0)
+    const totalCommissionDeducted = Number(config?.totalCommissionDeducted || 0)
+    const remainingDepositBalance = config?.remainingDepositBalance !== undefined
+        ? Number(config.remainingDepositBalance)
+        : securityDeposit - totalCommissionDeducted
+    const minimumRequiredDeposit = Number(config?.minimumRequiredDeposit || 0)
+    const pendingCommission = Number(config?.pendingCommission || 0)
+
+    const depositWarning = remainingDepositBalance <= 0
+        ? {
+            type: 'red',
+            message: 'Your account is temporarily inactive because your security deposit has been exhausted.'
+        }
+        : remainingDepositBalance < minimumRequiredDeposit
+            ? {
+                type: 'yellow',
+                message: 'Your security deposit is running low. Please recharge to continue receiving bookings.'
+            }
+            : null
+
+    const formatCurrency = value => `₹${Number(value || 0).toLocaleString('en-IN')}`
 
     const handlePay = async () => {
         setErr(''); setLoading(true)
@@ -92,11 +114,12 @@ export default function DepositPage() {
 
                             {config ? (
                                 <>
-                                    <div className='grid grid-cols-3 gap-3 mb-5'>
+                                    <div className='grid grid-cols-2 gap-3 mb-4'>
                                         {[
-                                            { label: 'Required', value: `₹${config.requiredAmount}` },
-                                            { label: 'Paid So Far', value: `₹${config.currentBalance}` },
-                                            { label: 'Remaining', value: `₹${remaining}`, highlight: true },
+                                            { label: 'Required', value: formatCurrency(config.requiredAmount) },
+                                            { label: 'Paid So Far', value: formatCurrency(config.currentBalance) },
+                                            { label: 'Remaining', value: formatCurrency(remaining), highlight: true },
+                                            { label: 'Remaining Deposit Balance', value: formatCurrency(remainingDepositBalance), highlight: true },
                                         ].map((s, i) => (
                                             <div key={i} className={`rounded-xl p-3 text-center ${s.highlight ? 'bg-[#fff0eb]' : 'bg-[#f7f7f8]'}`}>
                                                 <p className='text-xs text-gray-400'>{s.label}</p>
@@ -104,6 +127,29 @@ export default function DepositPage() {
                                             </div>
                                         ))}
                                     </div>
+
+                                    <div className='grid grid-cols-2 gap-3 mb-5'>
+                                        {[
+                                            { label: 'Commission Deducted', value: formatCurrency(totalCommissionDeducted), icon: FaArrowDown, color: 'text-red-500' },
+                                            { label: 'Pending Commission', value: formatCurrency(pendingCommission), icon: FaHourglassHalf, color: 'text-orange-600' },
+                                        ].map((s, i) => (
+                                            <div key={i} className='rounded-xl border border-[#eee] p-3 flex items-center gap-3'>
+                                                <div className='w-10 h-10 rounded-xl bg-[#f7f7f8] flex items-center justify-center shrink-0'>
+                                                    <s.icon size={16} className={s.color} />
+                                                </div>
+                                                <div>
+                                                    <p className='text-xs text-gray-400'>{s.label}</p>
+                                                    <p className='font-extrabold text-gray-800'>{s.value}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {depositWarning && (
+                                        <div className={`mb-5 rounded-xl border px-4 py-3 text-sm ${depositWarning.type === 'red' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                                            <p className='font-semibold'>{depositWarning.message}</p>
+                                        </div>
+                                    )}
 
                                     {/* progress bar */}
                                     <div className='mb-5'>

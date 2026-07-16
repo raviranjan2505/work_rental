@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { FaSearch, FaCommentDots, FaChevronRight } from 'react-icons/fa'
 import { MdBookmarkBorder } from 'react-icons/md'
 import useGetMyChats from '../hooks/useGetMyChats'
+import WorkerLayout from '../worker/WorkerLayout'
 
 function timeLabel(date) {
     if (!date) return ''
@@ -33,6 +34,7 @@ export default function ChatListPage() {
     const { userData } = useSelector(state => state.user)
     const navigate = useNavigate()
     const [search, setSearch] = useState('')
+    const isWorker = userData?.role === 'worker'
 
     useGetMyChats()
 
@@ -41,12 +43,12 @@ export default function ChatListPage() {
         return !search || other?.toLowerCase().includes(search.toLowerCase())
     })
 
-    return (
-        <div className='w-full min-h-screen pt-[80px] pb-24 md:pb-10 bg-[#fff9f6]'>
-            <div className='max-w-2xl mx-auto px-0 md:px-4'>
+    const content = (
+        <div className={isWorker ? 'w-full bg-[#fff9f6] rounded-2xl' : 'w-full min-h-screen pt-[80px] pb-24 md:pb-10 bg-[#fff9f6]'}>
+            <div className={isWorker ? 'w-full' : 'max-w-2xl mx-auto px-0 md:px-4'}>
 
                 {/* ── header ── */}
-                <div className='sticky top-[80px] z-[700] bg-[#fff9f6] px-4 pt-4 pb-3'>
+                <div className={isWorker ? 'z-[700] bg-[#fff9f6] pb-3' : 'sticky top-[80px] z-[700] bg-[#fff9f6] px-4 pt-4 pb-3'}>
                     <div className='flex items-center justify-between mb-4'>
                         <h1 className='text-2xl font-extrabold text-gray-900'>Messages</h1>
                         <span className='text-xs text-gray-400 font-medium'>{chats.length} conversation{chats.length !== 1 ? 's' : ''}</span>
@@ -139,4 +141,10 @@ export default function ChatListPage() {
             </div>
         </div>
     )
+
+    if (isWorker) {
+        return <WorkerLayout>{content}</WorkerLayout>
+    }
+
+    return content
 }

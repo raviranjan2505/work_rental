@@ -84,6 +84,8 @@ const bookingSchema = new mongoose.Schema({
     discountAmount: { type: Number, default: 0 },
     commissionPercent: { type: Number, default: 0 },
     commissionAmount: { type: Number, default: 0 },
+    commissionSettled: { type: Boolean, default: false },
+    commissionSettledAt: { type: Date, default: null },
     workerEarning: { type: Number, default: 0 },
     paymentMethod: { type: String, enum: ["online", "offline"], default: "offline" },
     isPaid: { type: Boolean, default: false },

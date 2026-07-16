@@ -1,14 +1,39 @@
 import Wallet from "../models/wallet.model.js"
 import WalletTransaction from "../models/walletTransaction.model.js"
 import Withdrawal from "../models/withdrawal.model.js"
-import { createRazorpayOrder, getRazorpayErrorMessage, verifyRazorpaySignature } from "../utils/razorpay.js"
-import { applyDuePaymentClearance } from "../utils/walletEngine.js"
+import { createRazorpayOrder, verifyRazorpaySignature } from "../utils/razorpay.js"
+import { applyDuePaymentClearance, getSettings } from "../utils/walletEngine.js"
 
 export const getMyWallet = async (req, res) => {
     try {
-        const wallet = await Wallet.findOne({ worker: req.userId })
-        if (!wallet) return res.status(404).json({ message: "wallet not found" })
-        return res.status(200).json(wallet)
+        let wallet = await Wallet.findOne({ worker: req.userId })
+        if (!wallet) {
+            wallet = await Wallet.create({
+                worker: req.userId,
+                totalEarnings: 0,
+                availableBalance: 0,
+                securityDepositBalance: 0,
+                pendingCommission: 0,
+                withdrawableBalance: 0,
+                totalWithdrawn: 0
+            })
+        }
+
+        const settings = await getSettings()
+        const commissionSummary = await WalletTransaction.aggregate([
+            { $match: { worker: req.userId, type: { $in: ["COMMISSION_DEDUCT", "COMMISSION_DEDUCTION"] } } },
+            { $group: { _id: null, totalCommissionDeducted: { $sum: "$amount" } } }
+        ])
+
+        const totalCommissionDeducted = commissionSummary[0]?.totalCommissionDeducted || 0
+        const remainingDepositBalance = Number(wallet.securityDepositBalance || 0)
+
+        return res.status(200).json({
+            ...wallet.toObject(),
+            totalCommissionDeducted,
+            remainingDepositBalance,
+            minimumRequiredDeposit: settings?.securityDepositAmount || 0
+        })
     } catch (error) {
         return res.status(500).json({ message: `get wallet error ${error}` })
     }
@@ -82,7 +107,7 @@ export const createDuePaymentOrder = async (req, res) => {
         // Razorpay SDK rejects with a plain object ({statusCode, error:{description,...}}),
         // not an Error instance, so `${error}` stringifies to "[object Object]". Pull the
         // real reason out instead.
-        const reason = getRazorpayErrorMessage(error)
+        const reason = error?.error?.description || error?.message || JSON.stringify(error)
         console.error("create due payment order error:", error)
         return res.status(500).json({ message: `create due payment order error: ${reason}` })
     }

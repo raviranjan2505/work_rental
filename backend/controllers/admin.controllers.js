@@ -86,16 +86,29 @@ export const listWorkersAdmin = async (req, res) => {
 export const getWorkerDetailAdmin = async (req, res) => {
     try {
         const { workerId } = req.params
-        const [profile, wallet, bookingCounts] = await Promise.all([
+        const [profile, wallet, bookingCounts, commissionSummary] = await Promise.all([
             WorkerProfile.findOne({ user: workerId }).populate("user", "fullName email mobile isBlocked").populate("category"),
             Wallet.findOne({ worker: workerId }),
             Booking.aggregate([
                 { $match: { worker: new mongoose.Types.ObjectId(workerId) } },
                 { $group: { _id: "$status", count: { $sum: 1 } } }
+            ]),
+            WalletTransaction.aggregate([
+                { $match: { worker: new mongoose.Types.ObjectId(workerId), type: { $in: ["COMMISSION_DEDUCT", "COMMISSION_DEDUCTION"] } } },
+                { $group: { _id: null, totalCommissionDeducted: { $sum: "$amount" } } }
             ])
         ])
         if (!profile) return res.status(404).json({ message: "worker not found" })
-        return res.status(200).json({ profile, wallet, bookingCounts })
+
+        const totalCommissionDeducted = commissionSummary[0]?.totalCommissionDeducted || 0
+        const walletPayload = wallet ? {
+            ...wallet.toObject(),
+            totalCommissionDeducted,
+            remainingDepositBalance: Number(wallet.securityDepositBalance || 0),
+            minimumRequiredDeposit: 0
+        } : null
+
+        return res.status(200).json({ profile, wallet: walletPayload, bookingCounts })
     } catch (error) {
         return res.status(500).json({ message: `get worker detail error ${error}` })
     }

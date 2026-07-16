@@ -3,14 +3,17 @@ import axios from 'axios'
 import { useDispatch, useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { serverUrl } from '../App'
+import WorkerLayout from '../worker/WorkerLayout'
 import useGetNotifications from '../hooks/useGetNotifications'
 import { setNotifications, setUnreadCount } from '../redux/notificationSlice'
 
 function NotificationsPage() {
     const { notifications } = useSelector(state => state.notification)
+    const { userData } = useSelector(state => state.user)
     const dispatch = useDispatch()
     const navigate = useNavigate()
     const refresh = useGetNotifications()
+    const isWorker = userData?.role === 'worker'
 
     const markAllRead = async () => {
         try {
@@ -32,11 +35,13 @@ function NotificationsPage() {
         if (n.data?.bookingId) navigate(`/bookings/${n.data.bookingId}`)
     }
 
-    return (
-        <div className='w-full min-h-[100vh] pt-[100px] pb-10 flex justify-center bg-[#fff9f6]'>
-            <div className='w-full max-w-lg px-4'>
+    const content = (
+        <div className={isWorker
+            ? 'w-full'
+            : 'w-full min-h-[100vh] pt-[100px] pb-10 flex justify-center bg-[#fff9f6]'}>
+            <div className={isWorker ? 'w-full' : 'w-full max-w-lg px-4'}>
                 <div className='flex items-center justify-between mb-4'>
-                    <h1 className='text-xl font-bold text-gray-800'>Notifications</h1>
+                    <h1 className={isWorker ? 'text-2xl font-extrabold text-gray-800' : 'text-xl font-bold text-gray-800'}>Notifications</h1>
                     <button onClick={markAllRead} className='text-sm text-[#ff4d2d] font-medium'>Mark all read</button>
                 </div>
                 {notifications.length === 0 && <p className='text-center text-gray-400 mt-10'>You're all caught up.</p>}
@@ -56,6 +61,12 @@ function NotificationsPage() {
             </div>
         </div>
     )
+
+    if (isWorker) {
+        return <WorkerLayout>{content}</WorkerLayout>
+    }
+
+    return content
 }
 
 export default NotificationsPage

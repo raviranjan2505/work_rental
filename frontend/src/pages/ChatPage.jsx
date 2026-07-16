@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { FaPaperPlane, FaImage, FaArrowLeft, FaTimes, FaCheck, FaCheckDouble } from 'react-icons/fa'
 import { MdDoneAll } from 'react-icons/md'
 import { serverUrl } from '../App'
+import WorkerLayout from '../worker/WorkerLayout'
 import { setActiveChat, setMessages } from '../redux/chatSlice'
 import useChatMessageSocketEvent from '../hooks/useChatMessageSocketEvent'
 
@@ -47,6 +48,7 @@ export default function ChatPage() {
     const fileInputRef = useRef(null)
     const bottomRef = useRef(null)
     const inputRef = useRef(null)
+    const isWorker = userData?.role === 'worker'
 
     const loadChat = async () => {
         try {
@@ -107,25 +109,31 @@ export default function ChatPage() {
     }
 
     if (err && !activeChat) {
-        return (
-            <div className='w-full min-h-screen pt-[80px] flex flex-col items-center justify-center gap-4 bg-[#fff9f6]'>
+        const errBody = (
+            <div className={isWorker
+                ? 'w-full min-h-[60vh] flex flex-col items-center justify-center gap-4 bg-[#fff9f6] rounded-2xl'
+                : 'w-full min-h-screen pt-[80px] flex flex-col items-center justify-center gap-4 bg-[#fff9f6]'}>
                 <p className='text-5xl'>💬</p>
                 <p className='text-gray-600 font-semibold'>{err}</p>
                 <button onClick={() => navigate(-1)}
                     className='px-5 py-2 bg-[#ff4d2d] text-white rounded-full font-semibold text-sm'>Go Back</button>
             </div>
         )
+        return isWorker ? <WorkerLayout>{errBody}</WorkerLayout> : errBody
     }
 
     if (!activeChat) {
-        return (
-            <div className='w-full min-h-screen pt-[80px] flex items-center justify-center bg-[#fff9f6]'>
+        const loadingBody = (
+            <div className={isWorker
+                ? 'w-full min-h-[60vh] flex items-center justify-center bg-[#fff9f6] rounded-2xl'
+                : 'w-full min-h-screen pt-[80px] flex items-center justify-center bg-[#fff9f6]'}>
                 <div className='flex items-center gap-2 text-gray-400'>
                     <div className='w-5 h-5 border-2 border-[#ff4d2d]/30 border-t-[#ff4d2d] rounded-full animate-spin' />
                     <span className='text-sm'>Loading chat…</span>
                 </div>
             </div>
         )
+        return isWorker ? <WorkerLayout>{loadingBody}</WorkerLayout> : loadingBody
     }
 
     const otherName = activeChat.customer?._id === userData?._id
@@ -141,8 +149,13 @@ export default function ChatPage() {
         grouped.push({ type: 'message', data: m })
     })
 
-    return (
-        <div className='w-full h-screen flex flex-col bg-[#fff9f6]' style={{ paddingTop: 80 }}>
+    const chatBody = (
+        <div
+            className={isWorker
+                ? 'w-full flex flex-col bg-[#fff9f6] rounded-2xl overflow-hidden border border-gray-100'
+                : 'w-full h-screen flex flex-col bg-[#fff9f6]'}
+            style={isWorker ? { height: 'calc(100vh - 6rem)' } : { paddingTop: 80 }}
+        >
 
             {/* ── HEADER ── */}
             <div className='bg-white border-b border-gray-100 shadow-sm px-4 py-3 flex items-center gap-3 shrink-0'>
@@ -284,4 +297,10 @@ export default function ChatPage() {
             )}
         </div>
     )
+
+    if (isWorker) {
+        return <WorkerLayout>{chatBody}</WorkerLayout>
+    }
+
+    return chatBody
 }

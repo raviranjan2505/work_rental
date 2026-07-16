@@ -5,11 +5,11 @@ import { useNavigate } from 'react-router-dom'
 import { FaUser, FaTools, FaIdCard, FaCheckCircle, FaUpload, FaImage } from 'react-icons/fa'
 import { MdVerified } from 'react-icons/md'
 import { ClipLoader } from 'react-spinners'
-import WorkerLayout from '../worker/WorkerLayout'
-import { serverUrl } from '../App'
-import useGetCategories from '../hooks/useGetCategories'
-import useGetMyWorkerProfile from '../hooks/useGetMyWorkerProfile'
-import { setMyWorkerProfile } from '../redux/workerSlice'
+import WorkerLayout from '../../worker/WorkerLayout'
+import { serverUrl } from '../../App'
+import useGetCategories from '../../hooks/useGetCategories'
+import useGetMyWorkerProfile from '../../hooks/useGetMyWorkerProfile'
+import { setMyWorkerProfile } from '../../redux/workerSlice'
 
 const SECTIONS = [
     { id: 'profile',   label: 'Basic Info',  icon: FaUser    },

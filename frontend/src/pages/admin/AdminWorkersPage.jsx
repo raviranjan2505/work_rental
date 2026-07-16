@@ -189,6 +189,8 @@ function AdminWorkersPage() {
                             <div className='mb-4 grid grid-cols-2 gap-2 text-sm'>
                                 <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Deposit</p>₹{detail.wallet.securityDepositBalance}</div>
                                 <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Pending commission</p>₹{detail.wallet.pendingCommission}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Total commission deducted</p>₹{detail.wallet.totalCommissionDeducted || 0}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Remaining deposit balance</p>₹{detail.wallet.remainingDepositBalance || 0}</div>
                                 <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Withdrawable</p>₹{detail.wallet.withdrawableBalance}</div>
                                 <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Total earnings</p>₹{detail.wallet.totalEarnings}</div>
                             </div>

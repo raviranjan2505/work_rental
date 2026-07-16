@@ -5,11 +5,13 @@ import { useDispatch, useSelector } from 'react-redux'
 import { ClipLoader } from 'react-spinners'
 import { FaComment } from "react-icons/fa"
 import { serverUrl } from '../App'
+import WorkerLayout from '../worker/WorkerLayout'
 import { setActiveBooking } from '../redux/bookingSlice'
 import BookingStatusBadge from '../components/BookingStatusBadge'
 import LiveTrackingMap from '../components/LiveTrackingMap'
 import ReviewForm from '../components/ReviewForm'
 import useBookingSocketEvents from '../hooks/useBookingSocketEvents'
+import useGetWallet from '../hooks/useGetWallet'
 import { openRazorpayCheckout } from '../utils/razorpayCheckout'
 
 const primaryColor = "#ff4d2d"
@@ -20,6 +22,7 @@ function BookingDetailPage() {
     const dispatch = useDispatch()
     const { userData } = useSelector(state => state.user)
     const { activeBooking, liveWorkerLocation } = useSelector(state => state.booking)
+    const refreshWallet = useGetWallet()
     const [loading, setLoading] = useState(false)
     const [err, setErr] = useState("")
     const [otpInput, setOtpInput] = useState("")
@@ -67,6 +70,9 @@ function BookingDetailPage() {
         try {
             const result = await axios[method](`${serverUrl}/api/booking/${bookingId}/${path}`, body, { withCredentials: true })
             dispatch(setActiveBooking(result.data))
+            if (path === 'verify-completion-otp' || path === 'payment/verify') {
+                await refreshWallet()
+            }
             setOtpInput("")
         } catch (error) {
             setErr(error?.response?.data?.message || "action failed")
@@ -109,17 +115,21 @@ function BookingDetailPage() {
     }
 
     if (err && !booking) {
-        return <div className='pt-[120px] text-center text-gray-500'>{err}</div>
+        return isWorker
+            ? <WorkerLayout><div className='text-center text-gray-500'>{err}</div></WorkerLayout>
+            : <div className='pt-[120px] text-center text-gray-500'>{err}</div>
     }
     if (!booking) {
-        return <div className='pt-[120px] text-center text-gray-400'>Loading…</div>
+        return isWorker
+            ? <WorkerLayout><div className='text-center text-gray-400'>Loading…</div></WorkerLayout>
+            : <div className='pt-[120px] text-center text-gray-400'>Loading…</div>
     }
 
     const otherParty = isWorker ? booking.customer : booking.worker
 
-    return (
-        <div className='w-full min-h-[100vh] pt-[100px] pb-10 flex justify-center bg-[#fff9f6]'>
-            <div className='w-full max-w-lg px-4'>
+    const content = (
+        <div className={isWorker ? 'w-full' : 'w-full min-h-[100vh] pt-[100px] pb-10 flex justify-center bg-[#fff9f6]'}>
+            <div className={isWorker ? 'w-full' : 'w-full max-w-lg px-4'}>
                 <div className='bg-white rounded-xl border border-[#eee] shadow-sm p-5 mb-4'>
                     <div className='flex items-center justify-between mb-1'>
                         <h1 className='text-lg font-bold text-gray-800'>{booking.category?.name}</h1>
@@ -278,6 +288,12 @@ function BookingDetailPage() {
             </div>
         </div>
     )
+
+    if (isWorker) {
+        return <WorkerLayout>{content}</WorkerLayout>
+    }
+
+    return content
 }
 
 export default BookingDetailPage

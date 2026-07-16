@@ -15,7 +15,8 @@ const walletTransactionSchema = new mongoose.Schema({
         type: String,
         enum: [
             "EARNING",            // credit from a completed booking
-            "COMMISSION_DEDUCT",  // debit, commission taken out of deposit
+            "COMMISSION_DEDUCT",  // legacy debit, commission taken out of deposit
+            "COMMISSION_DEDUCTION", // debit, commission taken out of deposit for cash bookings
             "COMMISSION_PAID",    // credit-ish ledger entry: worker cleared their pending commission due
             "DEPOSIT_PAID",       // credit, worker topped up deposit
             "WITHDRAWAL",         // debit, payout to worker
