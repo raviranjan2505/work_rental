@@ -1,7 +1,7 @@
 import User from "../models/user.model.js"
 import WorkerProfile from "../models/workerProfile.model.js"
 import Booking from "../models/booking.model.js"
-import Deposit from "../models/deposit.model.js"
+import CommissionDue from "../models/commissionDue.model.js"
 import Withdrawal from "../models/withdrawal.model.js"
 
 const sumField = async (Model, match, field) => {
@@ -37,28 +37,48 @@ export const getDashboardStats = async (req, res) => {
             totalCustomers,
             totalWorkers,
             activeWorkers,
-            suspendedWorkers,
-            paymentDueWorkers,
+            inactiveWorkers,
+            workersDeactivatedForUnpaidCommission,
             totalBookings,
             completedBookings,
-            pendingWithdrawalsCount
+            pendingWithdrawalsCount,
+            pendingDuesCount,
+            overdueDuesCount,
+            workersWithPendingDues
         ] = await Promise.all([
             User.countDocuments({ role: "customer" }),
             User.countDocuments({ role: "worker" }),
             WorkerProfile.countDocuments({ status: "ACTIVE" }),
-            WorkerProfile.countDocuments({ status: "SUSPENDED" }),
-            WorkerProfile.countDocuments({ status: "PAYMENT_DUE" }),
+            WorkerProfile.countDocuments({ status: "INACTIVE" }),
+            WorkerProfile.countDocuments({ status: "INACTIVE", deactivatedReason: "UNPAID_COMMISSION" }),
             Booking.countDocuments(),
             Booking.countDocuments({ status: "COMPLETED" }),
-            Withdrawal.countDocuments({ status: "REQUESTED" })
+            Withdrawal.countDocuments({ status: "REQUESTED" }),
+            CommissionDue.countDocuments({ status: "PENDING" }),
+            CommissionDue.countDocuments({ status: "OVERDUE" }),
+            CommissionDue.distinct("worker", { status: { $in: ["PENDING", "OVERDUE"] } })
         ])
 
-        const [totalBookingValue, commissionRevenue, depositsCollected, totalWithdrawals] = await Promise.all([
+        const [
+            totalBookingValue,
+            onlineCommission,
+            offlineCommissionTotal,
+            collectedCommission,
+            pendingCommissionAmount,
+            overdueCommissionAmount,
+            totalWithdrawals
+        ] = await Promise.all([
             sumField(Booking, { status: "COMPLETED" }, "amount"),
-            sumField(Booking, { status: "COMPLETED" }, "commissionAmount"),
-            sumField(Deposit, { status: "PAID" }, "amount"),
+            sumField(Booking, { commissionStatus: "COLLECTED" }, "commissionAmount"),
+            sumField(Booking, { commissionStatus: { $in: ["DUE", "PAID", "OVERDUE"] } }, "commissionAmount"),
+            sumField(Booking, { commissionStatus: { $in: ["COLLECTED", "PAID"] } }, "commissionAmount"),
+            sumField(CommissionDue, { status: "PENDING" }, "commissionAmount"),
+            sumField(CommissionDue, { status: "OVERDUE" }, "commissionAmount"),
             sumField(Withdrawal, { status: "PAID" }, "amount")
         ])
+
+        const totalPlatformRevenue = onlineCommission + offlineCommissionTotal
+        const offlineCommissionCollected = offlineCommissionTotal - pendingCommissionAmount - overdueCommissionAmount
 
         // ---- Category performance ----
         const categoryPerformance = await Booking.aggregate([
@@ -112,15 +132,25 @@ export const getDashboardStats = async (req, res) => {
                 totalCustomers,
                 totalWorkers,
                 activeWorkers,
-                suspendedWorkers,
-                paymentDueWorkers,
+                inactiveWorkers,
+                workersDeactivatedForUnpaidCommission,
                 totalBookings,
                 completedBookings,
                 totalBookingValue,
-                commissionRevenue,
-                depositsCollected,
                 totalWithdrawals,
                 pendingWithdrawalsCount
+            },
+            commission: {
+                totalPlatformRevenue,
+                onlineCommission,
+                offlineCommission: offlineCommissionTotal,
+                offlineCommissionCollected,
+                pendingCommission: pendingCommissionAmount,
+                collectedCommission,
+                overdueCommission: overdueCommissionAmount,
+                pendingDuesCount,
+                overdueDuesCount,
+                workersWithPendingDuesCount: workersWithPendingDues.length
             },
             categoryPerformance,
             charts: { dailyRevenue, monthlyRevenue, bookingTrends, workerGrowth }

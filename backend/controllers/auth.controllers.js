@@ -35,7 +35,7 @@ export const signUp=async (req,res) => {
         })
 
         // Workers get a wallet immediately; their WorkerProfile (KYC, category,
-        // rates, deposit) is completed in a separate step - see worker.controllers.js
+        // rates) is completed in a separate step - see worker.controllers.js
         if(role === "worker"){
             await Wallet.create({ worker: user._id })
         }

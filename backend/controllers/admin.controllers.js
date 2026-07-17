@@ -4,6 +4,7 @@ import WorkerProfile from "../models/workerProfile.model.js"
 import Wallet from "../models/wallet.model.js"
 import WalletTransaction from "../models/walletTransaction.model.js"
 import Booking from "../models/booking.model.js"
+import CommissionDue from "../models/commissionDue.model.js"
 import Review from "../models/review.model.js"
 import { pushNotification } from "../utils/notify.js"
 
@@ -86,29 +87,21 @@ export const listWorkersAdmin = async (req, res) => {
 export const getWorkerDetailAdmin = async (req, res) => {
     try {
         const { workerId } = req.params
-        const [profile, wallet, bookingCounts, commissionSummary] = await Promise.all([
+        const [profile, wallet, bookingCounts, commissionDues] = await Promise.all([
             WorkerProfile.findOne({ user: workerId }).populate("user", "fullName email mobile isBlocked").populate("category"),
             Wallet.findOne({ worker: workerId }),
             Booking.aggregate([
                 { $match: { worker: new mongoose.Types.ObjectId(workerId) } },
                 { $group: { _id: "$status", count: { $sum: 1 } } }
             ]),
-            WalletTransaction.aggregate([
-                { $match: { worker: new mongoose.Types.ObjectId(workerId), type: { $in: ["COMMISSION_DEDUCT", "COMMISSION_DEDUCTION"] } } },
-                { $group: { _id: null, totalCommissionDeducted: { $sum: "$amount" } } }
-            ])
+            CommissionDue.find({ worker: workerId }).sort({ createdAt: -1 }).limit(20)
         ])
         if (!profile) return res.status(404).json({ message: "worker not found" })
 
-        const totalCommissionDeducted = commissionSummary[0]?.totalCommissionDeducted || 0
-        const walletPayload = wallet ? {
-            ...wallet.toObject(),
-            totalCommissionDeducted,
-            remainingDepositBalance: Number(wallet.securityDepositBalance || 0),
-            minimumRequiredDeposit: 0
-        } : null
+        const pendingDuesCount = commissionDues.filter(d => d.status === "PENDING").length
+        const overdueDuesCount = commissionDues.filter(d => d.status === "OVERDUE").length
 
-        return res.status(200).json({ profile, wallet: walletPayload, bookingCounts })
+        return res.status(200).json({ profile, wallet, bookingCounts, commissionDues, pendingDuesCount, overdueDuesCount })
     } catch (error) {
         return res.status(500).json({ message: `get worker detail error ${error}` })
     }

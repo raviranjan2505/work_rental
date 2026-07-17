@@ -13,7 +13,8 @@ import axios from 'axios';
 import { FaMobileScreenButton } from "react-icons/fa6";
 import { useNavigate } from 'react-router-dom';
 import { serverUrl } from '../App';
-import { addMyOrder, setTotalAmount } from '../redux/userSlice';
+import { addMyOrder } from '../redux/userSlice';
+import { openRazorpayCheckout } from '../utils/razorpayCheckout';
 function RecenterMap({ location }) {
   if (location.lat && location.lon) {
     const map = useMap()
@@ -87,41 +88,33 @@ function CheckOut() {
       } else {
         const orderId = result.data.orderId
         const razorOrder = result.data.razorOrder
-        openRazorpayWindow(orderId, razorOrder)
+        await openRazorpayCheckout({
+          order: razorOrder,
+          name: "Vingo",
+          description: "Food Delivery Website",
+          prefill: {
+            name: userData?.fullName,
+            email: userData?.email,
+            contact: userData?.mobile
+          },
+          onSuccess: async (response) => {
+            try {
+              const paymentResult = await axios.post(`${serverUrl}/api/order/verify-payment`, {
+                razorpay_payment_id: response.razorpay_payment_id,
+                orderId
+              }, { withCredentials: true })
+              dispatch(addMyOrder(paymentResult.data))
+              navigate("/order-placed")
+            } catch (error) {
+              console.log(error)
+            }
+          }
+        })
       }
 
     } catch (error) {
       console.log(error)
     }
-  }
-
-  const openRazorpayWindow = (orderId, razorOrder) => {
-
-    const options = {
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-      amount: razorOrder.amount,
-      currency: 'INR',
-      name: "Vingo",
-      description: "Food Delivery Website",
-      order_id: razorOrder.id,
-      handler: async function (response) {
-        try {
-          const result = await axios.post(`${serverUrl}/api/order/verify-payment`, {
-            razorpay_payment_id: response.razorpay_payment_id,
-            orderId
-          }, { withCredentials: true })
-          dispatch(addMyOrder(result.data))
-          navigate("/order-placed")
-        } catch (error) {
-          console.log(error)
-        }
-      }
-    }
-
-    const rzp = new window.Razorpay(options)
-    rzp.open()
-
-
   }
 
   useEffect(() => {

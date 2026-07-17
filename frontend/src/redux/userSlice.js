@@ -7,7 +7,8 @@ const userSlice = createSlice({
     currentCity: null,
     currentState: null,
     currentAddress: null,
-    socket: null
+    socket: null,
+    myOrders: []
   },
   reducers: {
     setUserData: (state, action) => {
@@ -24,9 +25,53 @@ const userSlice = createSlice({
     },
     setSocket: (state, action) => {
       state.socket = action.payload
+    },
+    setMyOrders: (state, action) => {
+      state.myOrders = action.payload
+    },
+    addMyOrder: (state, action) => {
+      state.myOrders = [action.payload, ...(state.myOrders || [])]
+    },
+    updateOrderStatus: (state, action) => {
+      const { orderId, shopId, status } = action.payload || {}
+      state.myOrders = (state.myOrders || []).map(order => {
+        if (String(order._id) !== String(orderId)) return order
+        return {
+          ...order,
+          shopOrders: (order.shopOrders || []).map(shopOrder => (
+            String(shopOrder.shop?._id || shopOrder.shop) === String(shopId)
+              ? { ...shopOrder, status }
+              : shopOrder
+          ))
+        }
+      })
+    },
+    updateRealtimeOrderStatus: (state, action) => {
+      const { orderId, shopId, status } = action.payload || {}
+      state.myOrders = (state.myOrders || []).map(order => {
+        if (String(order._id) !== String(orderId)) return order
+        return {
+          ...order,
+          shopOrders: (order.shopOrders || []).map(shopOrder => (
+            String(shopOrder.shop?._id || shopOrder.shop) === String(shopId)
+              ? { ...shopOrder, status }
+              : shopOrder
+          ))
+        }
+      })
     }
   }
 })
 
-export const { setUserData, setCurrentAddress, setCurrentCity, setCurrentState, setSocket } = userSlice.actions
+export const {
+  setUserData,
+  setCurrentAddress,
+  setCurrentCity,
+  setCurrentState,
+  setSocket,
+  setMyOrders,
+  addMyOrder,
+  updateOrderStatus,
+  updateRealtimeOrderStatus
+} = userSlice.actions
 export default userSlice.reducer

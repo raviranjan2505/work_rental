@@ -26,6 +26,7 @@ function BookingDetailPage() {
     const [loading, setLoading] = useState(false)
     const [err, setErr] = useState("")
     const [otpInput, setOtpInput] = useState("")
+    const [showOfflineConfirm, setShowOfflineConfirm] = useState(false)
     const [existingReview, setExistingReview] = useState(null)
     const [reviewChecked, setReviewChecked] = useState(false)
 
@@ -46,7 +47,7 @@ function BookingDetailPage() {
     }, [bookingId])
 
     useEffect(() => {
-        if (!activeBooking || userData?.role !== "customer" || activeBooking.status !== "COMPLETED") return
+        if (!activeBooking || userData?.role !== "customer" || !["COMPLETED", "PAYMENT_RECEIVED"].includes(activeBooking.status)) return
         const checkReview = async () => {
             try {
                 const result = await axios.get(`${serverUrl}/api/review/my`, { withCredentials: true })
@@ -70,10 +71,11 @@ function BookingDetailPage() {
         try {
             const result = await axios[method](`${serverUrl}/api/booking/${bookingId}/${path}`, body, { withCredentials: true })
             dispatch(setActiveBooking(result.data))
-            if (path === 'verify-completion-otp' || path === 'payment/verify') {
+            if (path === 'receive-offline-payment' || path === 'payment/verify') {
                 await refreshWallet()
             }
             setOtpInput("")
+            setShowOfflineConfirm(false)
         } catch (error) {
             setErr(error?.response?.data?.message || "action failed")
         } finally {
@@ -247,6 +249,53 @@ function BookingDetailPage() {
                     </div>
                 )}
 
+                {/* Worker: post-completion payment actions (no OTP - Work Completed / Receive Offline Payment / Receive Online Payment) */}
+                {isWorker && ["COMPLETED", "PAYMENT_RECEIVED"].includes(booking.status) && (
+                    <div className='bg-white rounded-xl border border-[#eee] p-5 mb-4'>
+                        <p className='font-semibold text-gray-800 mb-3'>Payment</p>
+                        <div className='flex flex-col gap-2'>
+                            <button disabled className='w-full font-semibold py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 cursor-default'>
+                                ✓ Work Completed
+                            </button>
+
+                            {booking.paymentStatus === "PAID" ? (
+                                <div className='w-full text-center font-semibold py-2 rounded-lg border border-green-200 bg-green-50 text-green-700'>
+                                    ✓ Payment Received {booking.paymentMethod === "offline" ? "(Cash)" : "(Online)"}
+                                </div>
+                            ) : (
+                                <>
+                                    {booking.paymentMethod === "offline" && !showOfflineConfirm && (
+                                        <button onClick={() => setShowOfflineConfirm(true)} disabled={loading}
+                                            className='w-full font-semibold py-2 rounded-lg text-white' style={{ backgroundColor: primaryColor }}>
+                                            Receive Offline Payment
+                                        </button>
+                                    )}
+                                    {booking.paymentMethod === "offline" && showOfflineConfirm && (
+                                        <div className='border border-gray-200 rounded-lg p-3'>
+                                            <p className='text-sm text-gray-700 mb-2 text-center'>Have you received the payment from the customer?</p>
+                                            <div className='flex gap-2'>
+                                                <button onClick={() => callAction("receive-offline-payment", {}, "post")} disabled={loading}
+                                                    className='flex-1 font-semibold py-2 rounded-lg text-white bg-green-600 hover:bg-green-700'>
+                                                    {loading ? <ClipLoader size={16} color='white' /> : "YES"}
+                                                </button>
+                                                <button onClick={() => setShowOfflineConfirm(false)} disabled={loading}
+                                                    className='flex-1 font-semibold py-2 rounded-lg border border-gray-300 text-gray-600'>
+                                                    NO
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {booking.paymentMethod === "online" && (
+                                        <div className='w-full text-center text-sm text-gray-500 py-2 rounded-lg border border-gray-200 bg-gray-50'>
+                                            Receive Online Payment — waiting for the customer to pay online
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {["PENDING", "ACCEPTED", "ON_THE_WAY"].includes(booking.status) && (
                     <button
                         onClick={() => callAction("cancel", { reason: "cancelled from app" })}
@@ -257,7 +306,7 @@ function BookingDetailPage() {
                     </button>
                 )}
 
-                {!isWorker && booking.status === "COMPLETED" && booking.paymentMethod === "online" && !booking.isPaid && (
+                {!isWorker && booking.status === "COMPLETED" && booking.paymentMethod === "online" && booking.paymentStatus !== "PAID" && (
                     <div className='bg-white rounded-xl border border-[#eee] p-5 mb-4 text-center'>
                         <p className='text-sm text-gray-600 mb-3'>Job complete — pay online to settle this booking.</p>
                         <button onClick={handlePayOnline} disabled={loading} className='w-full font-semibold py-2 rounded-lg text-white' style={{ backgroundColor: primaryColor }}>
@@ -266,17 +315,35 @@ function BookingDetailPage() {
                     </div>
                 )}
 
-                {booking.status === "COMPLETED" && (
+                {/* Customer: payment status for cash bookings */}
+                {!isWorker && ["COMPLETED", "PAYMENT_RECEIVED"].includes(booking.status) && booking.paymentMethod === "offline" && (
+                    <div className='bg-white rounded-xl border border-[#eee] p-5 mb-4 text-center'>
+                        {booking.paymentStatus === "PAID" ? (
+                            <>
+                                <p className='text-green-600 font-semibold text-sm'>✅ Payment Successfully Received by Worker</p>
+                                {booking.paidAt && (
+                                    <p className='text-xs text-gray-400 mt-1'>Confirmed on {new Date(booking.paidAt).toLocaleString()}</p>
+                                )}
+                            </>
+                        ) : (
+                            <p className='text-sm text-gray-500'>Pay your worker in cash — payment confirmation from the worker is pending.</p>
+                        )}
+                    </div>
+                )}
+
+                {["COMPLETED", "PAYMENT_RECEIVED"].includes(booking.status) && (
                     <p className='text-center text-sm text-gray-400 mb-4'>
                         Job completed{booking.completedAt ? ` on ${new Date(booking.completedAt).toLocaleString()}` : ""}.
-                        {booking.paymentMethod === "offline" ? " Paid in cash directly to the worker." : booking.isPaid ? " Payment received." : ""}
+                        {booking.paymentMethod === "offline"
+                            ? (booking.paymentStatus === "PAID" ? " Cash payment confirmed." : " Awaiting cash payment confirmation.")
+                            : booking.paymentStatus === "PAID" ? " Payment received." : ""}
                     </p>
                 )}
 
-                {!isWorker && booking.status === "COMPLETED" && reviewChecked && !existingReview && (
+                {!isWorker && ["COMPLETED", "PAYMENT_RECEIVED"].includes(booking.status) && reviewChecked && !existingReview && (
                     <ReviewForm bookingId={bookingId} onSubmitted={setExistingReview} />
                 )}
-                {!isWorker && booking.status === "COMPLETED" && existingReview && (
+                {!isWorker && ["COMPLETED", "PAYMENT_RECEIVED"].includes(booking.status) && existingReview && (
                     <div className='bg-white rounded-xl border border-[#eee] p-5 text-center'>
                         <p className='text-sm text-gray-500'>You rated this job</p>
                         <p className='text-2xl font-bold text-yellow-500 mt-1'>{"★".repeat(existingReview.rating)}{"☆".repeat(5 - existingReview.rating)}</p>

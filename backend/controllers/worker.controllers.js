@@ -4,8 +4,9 @@ import Category from "../models/category.model.js"
 import uploadOnCloudinary from "../utils/cloudinary.js"
 
 // Worker creates/updates their own profile (category, rates, skills, KYC docs).
-// Until KYC is verified + deposit paid (Phase 4), status stays PENDING_DEPOSIT
-// and the profile will not appear in customer search.
+// Until KYC is verified, the profile won't show up in customer search
+// (see WorkerProfile.isSearchable). Accounts are ACTIVE by default and are
+// only ever auto-deactivated by the Commission Due engine for unpaid dues.
 export const createOrUpdateMyProfile = async (req, res) => {
     try {
         const workerId = req.userId
@@ -112,8 +113,7 @@ export const updateAvailability = async (req, res) => {
 }
 
 // ---- Admin actions (full admin dashboard lands in Phase 7; these two are
-// pulled forward so a worker can actually become searchable before the
-// deposit engine in Phase 4 exists) ----
+// pulled forward so a worker can actually become searchable) ----
 
 export const adminVerifyKyc = async (req, res) => {
     try {
@@ -137,7 +137,7 @@ export const adminSetWorkerStatus = async (req, res) => {
     try {
         const { workerProfileId } = req.params
         const { status } = req.body
-        if (!["PENDING_DEPOSIT", "ACTIVE", "PAYMENT_DUE", "SUSPENDED"].includes(status)) {
+        if (!["ACTIVE", "INACTIVE"].includes(status)) {
             return res.status(400).json({ message: "invalid status" })
         }
         const profile = await WorkerProfile.findById(workerProfileId)
@@ -145,6 +145,8 @@ export const adminSetWorkerStatus = async (req, res) => {
             return res.status(404).json({ message: "worker profile not found" })
         }
         profile.status = status
+        profile.deactivatedReason = status === "INACTIVE" ? "ADMIN_ACTION" : ""
+        profile.deactivatedAt = status === "INACTIVE" ? new Date() : null
         await profile.save()
         return res.status(200).json(profile)
     } catch (error) {
@@ -259,8 +261,8 @@ export const searchWorkers = async (req, res) => {
 }
 
 // Public worker search: nearby + isSearchable only. Filters: category, radius (km), rating,
-// price range, sort. Only ever returns isSearchable workers - the flag that
-// Phase 4 will gate behind ACTIVE status + verified KYC + paid deposit.
+// price range, sort. Only ever returns isSearchable workers - the flag gated
+// behind ACTIVE status + verified KYC + isAvailable.
 export const searchNearbyWorkers = async (req, res) => {
     try {
         const {

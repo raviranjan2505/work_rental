@@ -66,13 +66,17 @@ const bookingSchema = new mongoose.Schema({
             "ON_THE_WAY",
             "ARRIVED",
             "WORK_STARTED",
-            "COMPLETED",
+            "COMPLETED",         // work done, payment not yet settled
+            "PAYMENT_RECEIVED",  // cash payment confirmed by worker (offline bookings)
             "CANCELLED"
         ],
         default: "PENDING"
     },
 
     // ---- OTP security (Phase 3) ----
+    // Only two OTPs in this system: Start Work and Complete Work. Both are
+    // customer-facing (emailed to the customer, who reads them out to the
+    // worker in person). There is no separate payment-verification OTP.
     startOtp: { type: String, default: null },
     startOtpExpires: { type: Date, default: null },
     completionOtp: { type: String, default: null },
@@ -84,11 +88,28 @@ const bookingSchema = new mongoose.Schema({
     discountAmount: { type: Number, default: 0 },
     commissionPercent: { type: Number, default: 0 },
     commissionAmount: { type: Number, default: 0 },
+    // true once the platform commission for this booking has actually been
+    // settled - immediately for online (auto-deducted at the gateway) or
+    // once the worker clears the linked CommissionDue for a cash booking.
     commissionSettled: { type: Boolean, default: false },
     commissionSettledAt: { type: Date, default: null },
+    // NOT_APPLICABLE until payment happens; COLLECTED = online, commission
+    // auto-deducted at source; DUE = offline, commission owed and counting
+    // down; PAID = offline due cleared; OVERDUE = offline due window lapsed.
+    commissionStatus: {
+        type: String,
+        enum: ["NOT_APPLICABLE", "COLLECTED", "DUE", "PAID", "OVERDUE"],
+        default: "NOT_APPLICABLE"
+    },
     workerEarning: { type: Number, default: 0 },
     paymentMethod: { type: String, enum: ["online", "offline"], default: "offline" },
-    isPaid: { type: Boolean, default: false },
+    // PENDING until either the worker confirms cash-in-hand or the online
+    // gateway payment is verified. No OTP is involved in this transition.
+    paymentStatus: { type: String, enum: ["PENDING", "PAID"], default: "PENDING" },
+    paidAt: { type: Date, default: null },
+    // true once the assigned worker has explicitly confirmed ("Receive Offline
+    // Payment" -> YES) that they physically received the cash from the customer.
+    receivedByWorker: { type: Boolean, default: false },
     razorpayOrderId: { type: String, default: "" },
     razorpayPaymentId: { type: String, default: "" },
 

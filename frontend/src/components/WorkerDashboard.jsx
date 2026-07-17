@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import {
     FaCalendarCheck, FaStar, FaWallet, FaExclamationTriangle,
-    FaCheckCircle, FaHourglassHalf, FaArrowRight, FaBriefcase, FaShieldAlt
+    FaCheckCircle, FaHourglassHalf, FaArrowRight, FaBriefcase
 } from 'react-icons/fa'
 import { MdVerified, MdToggleOn, MdToggleOff } from 'react-icons/md'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts'
@@ -18,10 +18,8 @@ import useGetAssignedBookings from '../hooks/useGetAssignedBookings'
 const BRAND = '#ff4d2d'
 
 const STATUS_INFO = {
-    ACTIVE:          { label: 'Active',           color: 'text-green-700 bg-green-50 border-green-200',  icon: '🟢', note: "You're live and receiving bookings." },
-    PENDING_DEPOSIT: { label: 'Pending Deposit',  color: 'text-orange-700 bg-orange-50 border-orange-200', icon: '⏳', note: 'Pay your security deposit to start getting booked.' },
-    PAYMENT_DUE:     { label: 'Payment Due',      color: 'text-red-700 bg-red-50 border-red-200',       icon: '⚠️', note: 'Commission is overdue. Clear it to stay visible.' },
-    SUSPENDED:       { label: 'Suspended',        color: 'text-red-800 bg-red-100 border-red-300',      icon: '🚫', note: 'Profile hidden. Clear pending commission to reactivate.' },
+    ACTIVE:   { label: 'Active',   color: 'text-green-700 bg-green-50 border-green-200', icon: '🟢', note: "You're live and receiving bookings." },
+    INACTIVE: { label: 'Inactive', color: 'text-red-800 bg-red-100 border-red-300',      icon: '🚫', note: 'Profile hidden from search. Clear pending commission dues to reactivate.' },
 }
 
 function StatCard({ icon: Icon, label, value, sub, color = 'text-[#ff4d2d]', bg = 'bg-[#fff0eb]' }) {
@@ -58,7 +56,7 @@ export default function WorkerDashboard() {
     const dispatch = useDispatch()
     const navigate = useNavigate()
     const { myWorkerProfile } = useSelector(s => s.worker)
-    const { wallet } = useSelector(s => s.wallet)
+    const { wallet, commissionDues } = useSelector(s => s.wallet)
     const { assignedBookings } = useSelector(s => s.booking)
 
     useGetMyWorkerProfile()
@@ -95,29 +93,26 @@ export default function WorkerDashboard() {
         )
     }
 
-    const statusInfo  = STATUS_INFO[myWorkerProfile.status] || STATUS_INFO.PENDING_DEPOSIT
+    const statusInfo  = STATUS_INFO[myWorkerProfile.status] || STATUS_INFO.ACTIVE
     const recent      = [...(assignedBookings || [])].slice(0, 5)
-    const completed   = assignedBookings?.filter(b => b.status === 'COMPLETED').length || 0
+    const completed   = assignedBookings?.filter(b => ['COMPLETED', 'PAYMENT_RECEIVED'].includes(b.status)).length || 0
     const pending     = assignedBookings?.filter(b => b.status === 'PENDING').length || 0
 
-    const securityDeposit = Number(wallet?.securityDepositBalance || 0)
-    const totalCommissionDeducted = Number(wallet?.totalCommissionDeducted || 0)
-    const remainingDepositBalance = wallet?.remainingDepositBalance !== undefined
-        ? Number(wallet.remainingDepositBalance)
-        : securityDeposit - totalCommissionDeducted
-    const minimumRequiredDeposit = Number(wallet?.minimumRequiredDeposit || 0)
+    const pendingDues = (commissionDues || []).filter(d => ['PENDING', 'OVERDUE'].includes(d.status))
+    const overdueDues = pendingDues.filter(d => d.status === 'OVERDUE')
+    const paidDues    = (commissionDues || []).filter(d => d.status === 'PAID')
     const pendingCommission = Number(wallet?.pendingCommission || 0)
 
-    const depositWarning = remainingDepositBalance <= 0
-        ? {
-            type: 'red',
-            message: 'Your account is temporarily inactive because your security deposit has been exhausted.'
-        }
-        : remainingDepositBalance < minimumRequiredDeposit
-            ? {
-                type: 'yellow',
-                message: 'Your security deposit is running low. Please recharge to continue receiving bookings.'
-            }
+    // nearest upcoming due date, for the countdown
+    const nextDue = [...pendingDues].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0]
+    const daysRemaining = nextDue ? Math.ceil((new Date(nextDue.dueDate) - new Date()) / (24 * 60 * 60 * 1000)) : null
+
+    const lastPaidDue = [...paidDues].sort((a, b) => new Date(b.paidAt) - new Date(a.paidAt))[0]
+
+    const commissionWarning = overdueDues.length > 0
+        ? { type: 'red', message: 'Your account is inactive because one or more commission dues passed their deadline.' }
+        : pendingDues.length > 0
+            ? { type: 'yellow', message: `You have ₹${pendingCommission} commission due${nextDue ? ` — ${daysRemaining <= 0 ? 'due today' : `${daysRemaining} day(s) left`}` : ''}.` }
             : null
 
     const formatCurrency = value => `₹${Number(value || 0).toLocaleString('en-IN')}`
@@ -160,18 +155,10 @@ export default function WorkerDashboard() {
                         <p className='font-bold text-sm'>{statusInfo.label}</p>
                         <p className='text-xs mt-0.5 opacity-80'>{statusInfo.note}</p>
                     </div>
-                    {myWorkerProfile.status === 'PENDING_DEPOSIT' && (
-                        <button onClick={() => navigate('/deposit')}
-                            className='shrink-0 bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-orange-700'>
-                            Pay Now
-                        </button>
-                    )}
-                    {['PAYMENT_DUE', 'SUSPENDED'].includes(myWorkerProfile.status) && (
-                        <button onClick={() => navigate('/wallet')}
-                            className='shrink-0 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-red-700'>
-                            Clear Due
-                        </button>
-                    )}
+                    <button onClick={() => navigate('/wallet')}
+                        className='shrink-0 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-red-700'>
+                        Pay Due Commission
+                    </button>
                 </div>
             )}
 
@@ -198,43 +185,43 @@ export default function WorkerDashboard() {
                 <div className='flex items-start justify-between gap-3 mb-4'>
                     <div>
                         <p className='font-bold text-gray-800 flex items-center gap-2'>
-                            <FaShieldAlt size={14} className='text-[#ff4d2d]' />
-                            Deposit & Commission Summary
+                            <FaWallet size={14} className='text-[#ff4d2d]' />
+                            Commission Dashboard
                         </p>
-                        <p className='text-sm text-gray-400 mt-0.5'>Stay on top of your deposit balance and commission deductions</p>
+                        <p className='text-sm text-gray-400 mt-0.5'>Track your earnings, commission, and due countdown</p>
                     </div>
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full border ${statusInfo.color}`}>
+                        {statusInfo.label}
+                    </span>
                 </div>
 
                 <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-4'>
-                    <StatCard icon={FaShieldAlt} label='Security Deposit' value={formatCurrency(securityDeposit)} color='text-purple-600' bg='bg-purple-50' />
-                    <StatCard icon={FaWallet} label='Total Commission Deducted' value={formatCurrency(totalCommissionDeducted)} color='text-red-500' bg='bg-red-50' />
-                    <StatCard icon={FaCheckCircle} label='Remaining Deposit Balance' value={formatCurrency(remainingDepositBalance)} color='text-green-600' bg='bg-green-50' />
+                    <StatCard icon={FaWallet} label='Total Earnings' value={formatCurrency(wallet?.totalEarnings)} color='text-blue-600' bg='bg-blue-50' />
+                    <StatCard icon={FaCheckCircle} label='Online Earnings' value={formatCurrency(wallet?.onlineEarnings)} color='text-green-600' bg='bg-green-50' />
+                    <StatCard icon={FaCheckCircle} label='Offline Earnings' value={formatCurrency(wallet?.offlineEarnings)} color='text-purple-600' bg='bg-purple-50' />
+                    <StatCard icon={FaHourglassHalf} label='Platform Commission' value={formatCurrency(wallet?.totalCommission)} color='text-gray-600' bg='bg-gray-50' />
+                    <StatCard icon={FaCheckCircle} label='Paid Commission' value={formatCurrency(wallet?.paidCommission)} color='text-green-600' bg='bg-green-50' />
                     <StatCard icon={FaHourglassHalf} label='Pending Commission' value={formatCurrency(pendingCommission)} color='text-orange-600' bg='bg-orange-50' />
+                    <StatCard icon={FaExclamationTriangle} label='Due Commission' value={pendingDues.length} sub={pendingDues.length ? `${formatCurrency(pendingCommission)} across ${pendingDues.length} booking(s)` : 'No dues'} color='text-red-500' bg='bg-red-50' />
+                    <StatCard icon={FaHourglassHalf} label='Due Countdown'
+                        value={nextDue ? (daysRemaining <= 0 ? 'Due today' : `${daysRemaining}d left`) : '—'}
+                        sub={lastPaidDue ? `Last paid ${new Date(lastPaidDue.paidAt).toLocaleDateString()}` : 'No payments yet'}
+                        color='text-orange-600' bg='bg-orange-50' />
                 </div>
 
-                {depositWarning && (
-                    <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${depositWarning.type === 'red' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
-                        <p className='font-semibold'>{depositWarning.message}</p>
+                {commissionWarning && (
+                    <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${commissionWarning.type === 'red' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+                        <p className='font-semibold'>{commissionWarning.message}</p>
                     </div>
                 )}
-            </div>
 
-            {/* pending commission warning */}
-            {pendingCommission > 0 && (
-                <div className='bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between gap-3 mb-6'>
-                    <div className='flex items-center gap-3'>
-                        <FaExclamationTriangle className='text-red-500 shrink-0' />
-                        <div>
-                            <p className='font-bold text-red-700 text-sm'>Commission Due: {formatCurrency(pendingCommission)}</p>
-                            <p className='text-xs text-red-600 opacity-80'>Clear this to remain visible to customers</p>
-                        </div>
-                    </div>
+                {pendingDues.length > 0 && (
                     <button onClick={() => navigate('/wallet')}
-                        className='shrink-0 bg-red-600 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors'>
-                        Pay Now
+                        className='mt-4 w-full md:w-auto bg-red-600 hover:bg-red-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors'>
+                        Pay Due Commission
                     </button>
-                </div>
-            )}
+                )}
+            </div>
 
             <div className='grid md:grid-cols-3 gap-4'>
                 {/* profile card */}

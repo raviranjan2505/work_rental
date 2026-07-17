@@ -3,7 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import axios from 'axios'
 import {
-    FaTachometerAlt, FaCalendarCheck, FaWallet, FaShieldAlt,
+    FaTachometerAlt, FaCalendarCheck, FaWallet,
     FaUserEdit, FaSignOutAlt, FaCommentDots, FaBell, FaBars, FaTimes
 } from 'react-icons/fa'
 import { MdToggleOn, MdToggleOff } from 'react-icons/md'
@@ -15,17 +15,14 @@ const NAV = [
     { to: '/',                icon: FaTachometerAlt, label: 'Dashboard',         end: true },
     { to: '/worker-bookings', icon: FaCalendarCheck, label: 'Booking Requests' },
     { to: '/wallet',          icon: FaWallet,        label: 'Wallet'            },
-    { to: '/deposit',         icon: FaShieldAlt,     label: 'Security Deposit'  },
     { to: '/worker-onboarding', icon: FaUserEdit,    label: 'Edit Profile'      },
     { to: '/chats',           icon: FaCommentDots,   label: 'Messages'          },
     { to: '/notifications',   icon: FaBell,          label: 'Notifications'     },
 ]
 
 const STATUS_STYLES = {
-    ACTIVE:          'bg-green-100 text-green-700',
-    PENDING_DEPOSIT: 'bg-orange-100 text-orange-700',
-    PAYMENT_DUE:     'bg-red-100 text-red-600',
-    SUSPENDED:       'bg-red-200 text-red-800',
+    ACTIVE:   'bg-green-100 text-green-700',
+    INACTIVE: 'bg-red-200 text-red-800',
 }
 
 export default function WorkerLayout({ children }) {
@@ -54,8 +51,8 @@ export default function WorkerLayout({ children }) {
         } catch (e) { console.error(e) }
     }
 
-    const status      = myWorkerProfile?.status || 'PENDING_DEPOSIT'
-    const statusStyle = STATUS_STYLES[status] || STATUS_STYLES.PENDING_DEPOSIT
+    const status      = myWorkerProfile?.status || 'ACTIVE'
+    const statusStyle = STATUS_STYLES[status] || STATUS_STYLES.ACTIVE
     const initials    = userData?.fullName?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'W'
 
     const Sidebar = () => (

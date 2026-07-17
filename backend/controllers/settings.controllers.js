@@ -12,9 +12,8 @@ export const getPlatformSettings = async (req, res) => {
 
 export const updatePlatformSettings = async (req, res) => {
     try {
-        const { securityDepositAmount, gracePeriodDays } = req.body
+        const { gracePeriodDays } = req.body
         const update = {}
-        if (securityDepositAmount !== undefined) update.securityDepositAmount = securityDepositAmount
         if (gracePeriodDays !== undefined) update.gracePeriodDays = gracePeriodDays
 
         const settings = await Settings.findOneAndUpdate(

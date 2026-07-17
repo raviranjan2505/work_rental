@@ -1,38 +1,21 @@
 import Wallet from "../models/wallet.model.js"
 import WalletTransaction from "../models/walletTransaction.model.js"
 import Withdrawal from "../models/withdrawal.model.js"
+import CommissionDue from "../models/commissionDue.model.js"
 import { createRazorpayOrder, verifyRazorpaySignature } from "../utils/razorpay.js"
-import { applyDuePaymentClearance, getSettings } from "../utils/walletEngine.js"
+import { settleCommissionDue, getSettings } from "../utils/walletEngine.js"
 
 export const getMyWallet = async (req, res) => {
     try {
         let wallet = await Wallet.findOne({ worker: req.userId })
         if (!wallet) {
-            wallet = await Wallet.create({
-                worker: req.userId,
-                totalEarnings: 0,
-                availableBalance: 0,
-                securityDepositBalance: 0,
-                pendingCommission: 0,
-                withdrawableBalance: 0,
-                totalWithdrawn: 0
-            })
+            wallet = await Wallet.create({ worker: req.userId })
         }
-
         const settings = await getSettings()
-        const commissionSummary = await WalletTransaction.aggregate([
-            { $match: { worker: req.userId, type: { $in: ["COMMISSION_DEDUCT", "COMMISSION_DEDUCTION"] } } },
-            { $group: { _id: null, totalCommissionDeducted: { $sum: "$amount" } } }
-        ])
-
-        const totalCommissionDeducted = commissionSummary[0]?.totalCommissionDeducted || 0
-        const remainingDepositBalance = Number(wallet.securityDepositBalance || 0)
 
         return res.status(200).json({
             ...wallet.toObject(),
-            totalCommissionDeducted,
-            remainingDepositBalance,
-            minimumRequiredDeposit: settings?.securityDepositAmount || 0
+            gracePeriodDays: settings.gracePeriodDays
         })
     } catch (error) {
         return res.status(500).json({ message: `get wallet error ${error}` })
@@ -93,36 +76,70 @@ export const getMyWithdrawals = async (req, res) => {
     }
 }
 
-// ---- Pay off pending commission to lift PAYMENT_DUE / SUSPENDED ----
+// ---- Commission Due Management (worker side) ----
 
-export const createDuePaymentOrder = async (req, res) => {
+export const getMyCommissionDues = async (req, res) => {
     try {
-        const wallet = await Wallet.findOne({ worker: req.userId })
-        if (!wallet || wallet.pendingCommission <= 0) {
-            return res.status(400).json({ message: "no pending commission due" })
-        }
-        const order = await createRazorpayOrder(wallet.pendingCommission, `due_${req.userId}_${Date.now()}`)
-        return res.status(201).json({ order, amount: wallet.pendingCommission })
+        const { status } = req.query
+        const filter = { worker: req.userId }
+        if (status) filter.status = status
+        const dues = await CommissionDue.find(filter)
+            .populate("booking", "category bookingType amount")
+            .populate("customer", "fullName mobile")
+            .sort({ createdAt: -1 })
+        return res.status(200).json(dues)
     } catch (error) {
-        // Razorpay SDK rejects with a plain object ({statusCode, error:{description,...}}),
-        // not an Error instance, so `${error}` stringifies to "[object Object]". Pull the
-        // real reason out instead.
-        const reason = error?.error?.description || error?.message || JSON.stringify(error)
-        console.error("create due payment order error:", error)
-        return res.status(500).json({ message: `create due payment order error: ${reason}` })
+        return res.status(500).json({ message: `get commission dues error ${error}` })
     }
 }
 
-export const verifyDuePayment = async (req, res) => {
+// Pay a specific Commission Due straight out of the worker's wallet balance.
+export const payCommissionDueFromWallet = async (req, res) => {
     try {
-        const { amount, razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body
+        const { dueId } = req.params
+        const due = await settleCommissionDue(req.userId, dueId, "wallet", req.app.get("io"))
+        return res.status(200).json(due)
+    } catch (error) {
+        return res.status(400).json({ message: error?.message || `pay commission due error ${error}` })
+    }
+}
+
+// Pay a specific Commission Due via the online payment gateway.
+export const createCommissionDuePaymentOrder = async (req, res) => {
+    try {
+        const { dueId } = req.params
+        const due = await CommissionDue.findOne({ _id: dueId, worker: req.userId })
+        if (!due) return res.status(404).json({ message: "commission due not found" })
+        if (due.status === "PAID") return res.status(400).json({ message: "this due is already paid" })
+
+        const order = await createRazorpayOrder(due.commissionAmount, `commission_due_${dueId}_${Date.now()}`)
+        due.razorpayOrderId = order.id
+        await due.save()
+
+        return res.status(201).json({ order, amount: due.commissionAmount })
+    } catch (error) {
+        const reason = error?.error?.description || error?.message || JSON.stringify(error)
+        console.error("create commission due payment order error:", error)
+        return res.status(500).json({ message: `create commission due payment order error: ${reason}` })
+    }
+}
+
+export const verifyCommissionDuePayment = async (req, res) => {
+    try {
+        const { dueId } = req.params
+        const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body
         const isValid = verifyRazorpaySignature({ orderId: razorpayOrderId, paymentId: razorpayPaymentId, signature: razorpaySignature })
         if (!isValid) return res.status(400).json({ message: "payment verification failed" })
 
-        const profile = await applyDuePaymentClearance(req.userId, Number(amount), req.app.get("io"))
-        return res.status(200).json({ workerProfile: profile })
+        const due = await CommissionDue.findOne({ _id: dueId, worker: req.userId })
+        if (!due) return res.status(404).json({ message: "commission due not found" })
+        due.razorpayPaymentId = razorpayPaymentId
+        await due.save()
+
+        const settled = await settleCommissionDue(req.userId, dueId, "online", req.app.get("io"))
+        return res.status(200).json(settled)
     } catch (error) {
-        return res.status(500).json({ message: `verify due payment error ${error}` })
+        return res.status(400).json({ message: error?.message || `verify commission due payment error ${error}` })
     }
 }
 

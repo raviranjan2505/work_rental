@@ -63,16 +63,23 @@ const workerProfileSchema = new mongoose.Schema({
         coordinates: { type: [Number], default: [0, 0] } // [lng, lat]
     },
 
-    // ---- Lifecycle status driven by the security-deposit engine (Phase 4) ----
+    // ---- Lifecycle status driven by the Commission Due engine ----
+    // ACTIVE by default. Automatically flipped to INACTIVE the moment any
+    // linked CommissionDue goes overdue (unpaid past its 7-day due date),
+    // and automatically restored to ACTIVE once every due is cleared.
     status: {
         type: String,
-        enum: ["PENDING_DEPOSIT", "ACTIVE", "PAYMENT_DUE", "SUSPENDED"],
-        default: "PENDING_DEPOSIT"
+        enum: ["ACTIVE", "INACTIVE"],
+        default: "ACTIVE"
     },
-    // when the worker first accrued pending commission - the grace-period
-    // sweep suspends them once (now - paymentDueSince) exceeds the configured
-    // grace window. Cleared whenever pendingCommission returns to 0.
-    paymentDueSince: {
+    // set when the account is auto-deactivated for unpaid commission so the
+    // reason can be shown to the worker/admin; cleared on reactivation.
+    deactivatedReason: {
+        type: String,
+        enum: ["", "UNPAID_COMMISSION", "ADMIN_ACTION"],
+        default: ""
+    },
+    deactivatedAt: {
         type: Date,
         default: null
     },
@@ -98,9 +105,9 @@ workerProfileSchema.index({ location: '2dsphere' })
 workerProfileSchema.index({ category: 1, status: 1, isSearchable: 1 })
 
 // isSearchable is derived, not set directly: a worker only shows up in
-// customer search once their deposit is paid (status === ACTIVE, wired in
-// Phase 4), their KYC is verified by admin, and they've toggled themselves
-// available.
+// customer search while their account is ACTIVE (i.e. no overdue commission
+// due has deactivated them), their KYC is verified by admin, and they've
+// toggled themselves available.
 workerProfileSchema.pre('save', function (next) {
     this.isSearchable = this.status === 'ACTIVE' && this.isAvailable && this.kyc?.isVerified === true
     next()

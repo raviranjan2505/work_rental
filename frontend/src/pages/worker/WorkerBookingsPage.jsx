@@ -12,6 +12,7 @@ const STATUS_BADGE = {
     CONFIRMED:   'bg-blue-50 text-blue-700 border-blue-200',
     IN_PROGRESS: 'bg-purple-50 text-purple-700 border-purple-200',
     COMPLETED:   'bg-green-50 text-green-700 border-green-200',
+    PAYMENT_RECEIVED: 'bg-emerald-100 text-emerald-800 border-emerald-200',
     CANCELLED:   'bg-red-50 text-red-600 border-red-200',
 }
 
@@ -32,14 +33,14 @@ export default function WorkerBookingsPage() {
     useGetAssignedBookings()
 
     const filtered = (assignedBookings || []).filter(b => {
-        const tabOk = activeTab === 'ALL' || b.status === activeTab
+        const tabOk = activeTab === 'ALL' || b.status === activeTab || (activeTab === 'COMPLETED' && b.status === 'PAYMENT_RECEIVED')
         const searchOk = !search || b.customer?.fullName?.toLowerCase().includes(search.toLowerCase())
         return tabOk && searchOk
     })
 
     const countFor = (tab) => tab === 'ALL'
         ? assignedBookings?.length || 0
-        : assignedBookings?.filter(b => b.status === tab).length || 0
+        : assignedBookings?.filter(b => b.status === tab || (tab === 'COMPLETED' && b.status === 'PAYMENT_RECEIVED')).length || 0
 
     return (
         <WorkerLayout>

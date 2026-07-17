@@ -4,7 +4,7 @@ import { serverUrl } from '../../App'
 
 const primaryColor = "#ff4d2d"
 
-const STATUS_OPTIONS = ["PENDING_DEPOSIT", "ACTIVE", "PAYMENT_DUE", "SUSPENDED"]
+const STATUS_OPTIONS = ["ACTIVE", "INACTIVE"]
 
 function AdminWorkersPage() {
     const [workers, setWorkers] = useState([])
@@ -187,12 +187,30 @@ function AdminWorkersPage() {
 
                         {detail.wallet && (
                             <div className='mb-4 grid grid-cols-2 gap-2 text-sm'>
-                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Deposit</p>₹{detail.wallet.securityDepositBalance}</div>
-                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Pending commission</p>₹{detail.wallet.pendingCommission}</div>
-                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Total commission deducted</p>₹{detail.wallet.totalCommissionDeducted || 0}</div>
-                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Remaining deposit balance</p>₹{detail.wallet.remainingDepositBalance || 0}</div>
-                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Withdrawable</p>₹{detail.wallet.withdrawableBalance}</div>
                                 <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Total earnings</p>₹{detail.wallet.totalEarnings}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Online earnings</p>₹{detail.wallet.onlineEarnings}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Offline earnings</p>₹{detail.wallet.offlineEarnings}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Platform commission</p>₹{detail.wallet.totalCommission}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Paid commission</p>₹{detail.wallet.paidCommission}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Pending commission</p>₹{detail.wallet.pendingCommission}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Withdrawable</p>₹{detail.wallet.withdrawableBalance}</div>
+                                <div className='bg-gray-50 rounded p-2'><p className='text-xs text-gray-400'>Total withdrawn</p>₹{detail.wallet.totalWithdrawn}</div>
+                            </div>
+                        )}
+
+                        {detail.commissionDues?.length > 0 && (
+                            <div className='mb-4'>
+                                <p className='text-sm font-semibold text-gray-700 mb-1'>
+                                    Commission Dues <span className='text-xs text-gray-400 font-normal'>({detail.pendingDuesCount} pending, {detail.overdueDuesCount} overdue)</span>
+                                </p>
+                                <div className='max-h-40 overflow-y-auto space-y-1'>
+                                    {detail.commissionDues.map(d => (
+                                        <div key={d._id} className='flex justify-between text-xs bg-gray-50 rounded px-2 py-1.5'>
+                                            <span className='text-gray-500'>{d.status} · due {new Date(d.dueDate).toLocaleDateString()}</span>
+                                            <span className='font-semibold text-gray-700'>₹{d.commissionAmount}</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
 

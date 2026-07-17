@@ -41,7 +41,7 @@ function AdminDashboardPage() {
     if (err) return <p className='text-red-500'>{err}</p>
     if (!data) return <p className='text-gray-400'>Loading…</p>
 
-    const { totals, categoryPerformance, charts } = data
+    const { totals, commission, categoryPerformance, charts } = data
 
     return (
         <div>
@@ -50,12 +50,25 @@ function AdminDashboardPage() {
             <div className='grid grid-cols-2 md:grid-cols-4 gap-3 mb-6'>
                 <StatCard label="Customers" value={totals.totalCustomers} />
                 <StatCard label="Workers" value={totals.totalWorkers} sub={`${totals.activeWorkers} active`} />
-                <StatCard label="Suspended workers" value={totals.suspendedWorkers} sub={`${totals.paymentDueWorkers} payment due`} />
+                <StatCard label="Inactive workers" value={totals.inactiveWorkers} sub={`${totals.workersDeactivatedForUnpaidCommission} for unpaid commission`} />
                 <StatCard label="Total bookings" value={totals.totalBookings} sub={`${totals.completedBookings} completed`} />
                 <StatCard label="Gross booking value" value={`₹${totals.totalBookingValue}`} sub="completed bookings" />
-                <StatCard label="Commission revenue" value={`₹${totals.commissionRevenue}`} sub="platform earnings" />
-                <StatCard label="Deposits collected" value={`₹${totals.depositsCollected}`} />
                 <StatCard label="Withdrawals paid" value={`₹${totals.totalWithdrawals}`} sub={`${totals.pendingWithdrawalsCount} pending requests`} />
+            </div>
+
+            {/* ---- Commission Management ---- */}
+            <div className='bg-white rounded-xl border border-[#eee] p-4 mb-6'>
+                <p className='font-semibold text-gray-700 mb-3 text-sm'>Commission Management</p>
+                <div className='grid grid-cols-2 md:grid-cols-4 gap-3'>
+                    <StatCard label="Total Platform Revenue" value={`₹${commission.totalPlatformRevenue}`} />
+                    <StatCard label="Online Commission" value={`₹${commission.onlineCommission}`} />
+                    <StatCard label="Offline Commission" value={`₹${commission.offlineCommission}`} sub={`₹${commission.offlineCommissionCollected} collected`} />
+                    <StatCard label="Collected Commission" value={`₹${commission.collectedCommission}`} />
+                    <StatCard label="Pending Commission" value={`₹${commission.pendingCommission}`} sub={`${commission.pendingDuesCount} due(s)`} />
+                    <StatCard label="Overdue Commission" value={`₹${commission.overdueCommission}`} sub={`${commission.overdueDuesCount} due(s)`} />
+                    <StatCard label="Workers with pending dues" value={commission.workersWithPendingDuesCount} />
+                    <StatCard label="Deactivated (unpaid commission)" value={totals.workersDeactivatedForUnpaidCommission} />
+                </div>
             </div>
 
             <div className='grid md:grid-cols-2 gap-4 mb-6'>

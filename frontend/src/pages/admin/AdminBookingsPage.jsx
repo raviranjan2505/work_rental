@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { serverUrl } from '../../App'
 
-const STATUS_OPTIONS = ["PENDING", "ACCEPTED", "REJECTED", "ON_THE_WAY", "ARRIVED", "WORK_STARTED", "COMPLETED", "CANCELLED"]
+const STATUS_OPTIONS = ["PENDING", "ACCEPTED", "REJECTED", "ON_THE_WAY", "ARRIVED", "WORK_STARTED", "COMPLETED", "PAYMENT_RECEIVED", "CANCELLED"]
 const TYPE_OPTIONS = ["hourly", "daily", "task"]
 
 function AdminBookingsPage() {
@@ -55,6 +55,9 @@ function AdminBookingsPage() {
                             <th className='py-2 px-3'>Worker</th>
                             <th className='py-2 px-3'>Status</th>
                             <th className='py-2 px-3'>Amount</th>
+                            <th className='py-2 px-3'>Payment</th>
+                            <th className='py-2 px-3'>Commission</th>
+                            <th className='py-2 px-3'>Payment Status</th>
                             <th className='py-2 px-3'>Created</th>
                         </tr>
                     </thead>
@@ -67,6 +70,11 @@ function AdminBookingsPage() {
                                 <td className='py-2 px-3 text-gray-500'>{b.worker?.fullName || "—"}</td>
                                 <td className='py-2 px-3'>{b.status}</td>
                                 <td className='py-2 px-3'>₹{b.amount}</td>
+                                <td className='py-2 px-3 text-gray-500 capitalize'>{b.paymentMethod}</td>
+                                <td className='py-2 px-3 text-gray-500'>₹{b.commissionAmount} · {b.commissionStatus || "NOT_APPLICABLE"}</td>
+                                <td className='py-2 px-3 text-gray-500'>
+                                    {b.paymentStatus === "PAID" ? "Received" : "Pending"}
+                                </td>
                                 <td className='py-2 px-3 text-gray-400'>{new Date(b.createdAt).toLocaleDateString()}</td>
                             </tr>
                         ))}

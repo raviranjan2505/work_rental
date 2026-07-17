@@ -12,6 +12,7 @@ import {
     markArrived,
     verifyStartOtp,
     verifyCompletionOtp,
+    receiveOfflinePayment,
     cancelBooking,
     createBookingPaymentOrder,
     verifyBookingPayment
@@ -30,6 +31,7 @@ bookingRouter.patch("/:bookingId/start-journey", isAuth, authorize("worker"), st
 bookingRouter.patch("/:bookingId/arrived", isAuth, authorize("worker"), markArrived)
 bookingRouter.post("/:bookingId/verify-start-otp", isAuth, authorize("worker"), verifyStartOtp)
 bookingRouter.post("/:bookingId/verify-completion-otp", isAuth, authorize("worker"), verifyCompletionOtp)
+bookingRouter.post("/:bookingId/receive-offline-payment", isAuth, authorize("worker"), receiveOfflinePayment)
 bookingRouter.patch("/:bookingId/cancel", isAuth, cancelBooking)
 bookingRouter.post("/:bookingId/payment/create-order", isAuth, authorize("customer"), createBookingPaymentOrder)
 bookingRouter.post("/:bookingId/payment/verify", isAuth, authorize("customer"), verifyBookingPayment)

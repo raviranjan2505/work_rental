@@ -6,10 +6,9 @@ const settingsSchema = new mongoose.Schema({
         default: "GLOBAL",
         unique: true
     },
-    securityDepositAmount: {
-        type: Number,
-        default: 500
-    },
+    // Days a worker has to clear an offline-booking commission due before
+    // their account is automatically deactivated. Default matches the
+    // 7-day commission due countdown.
     gracePeriodDays: {
         type: Number,
         default: 7

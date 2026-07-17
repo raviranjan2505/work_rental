@@ -9,9 +9,13 @@ const EMAIL_WORTHY = new Set([
     "BOOKING_REJECTED",
     "WORK_COMPLETED",
     "PAYMENT_RECEIVED",
-    "COMMISSION_DUE",
-    "SUSPENSION_WARNING",
-    "WORKER_SUSPENDED"
+    "PAYMENT_CONFIRMED",
+    "COMMISSION_DUE_CREATED",
+    "COMMISSION_DUE_REMINDER",
+    "COMMISSION_DUE_OVERDUE",
+    "WORKER_DEACTIVATED",
+    "COMMISSION_DUE_PAID",
+    "WORKER_REACTIVATED"
 ])
 
 // io can be null (e.g. called from a setInterval sweep with no request context)

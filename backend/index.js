@@ -10,7 +10,6 @@ import userRouter from "./routes/user.routes.js"
 import categoryRouter from "./routes/category.routes.js"
 import workerRouter from "./routes/worker.routes.js"
 import bookingRouter from "./routes/booking.routes.js"
-import depositRouter from "./routes/deposit.routes.js"
 import walletRouter from "./routes/wallet.routes.js"
 import settingsRouter from "./routes/settings.routes.js"
 import commissionRouter from "./routes/commission.routes.js"
@@ -19,7 +18,7 @@ import reviewRouter from "./routes/review.routes.js"
 import notificationRouter from "./routes/notification.routes.js"
 import adminRouter from "./routes/admin.routes.js"
 import couponRouter from "./routes/coupon.routes.js"
-import { runGracePeriodSweep } from "./utils/walletEngine.js"
+import { runCommissionDueSweep } from "./utils/walletEngine.js"
 import http from "http"
 import { Server } from "socket.io"
 import { socketHandler } from "./socket.js"
@@ -51,7 +50,6 @@ app.use("/api/user",userRouter)
 app.use("/api/category",categoryRouter)
 app.use("/api/worker",workerRouter)
 app.use("/api/booking",bookingRouter)
-app.use("/api/deposit",depositRouter)
 app.use("/api/wallet",walletRouter)
 app.use("/api/settings",settingsRouter)
 app.use("/api/commission",commissionRouter)
@@ -66,8 +64,8 @@ server.listen(port,()=>{
     connectDb()
     console.log(`server started at ${port}`)
     // No real cron infra here - an hourly interval is enough to keep the
-    // PAYMENT_DUE -> SUSPENDED grace-period transition moving in the background.
-    runGracePeriodSweep(io)
-    setInterval(() => runGracePeriodSweep(io), 60 * 60 * 1000)
+    // 7-day commission-due countdown (reminders + auto-deactivation) moving.
+    runCommissionDueSweep(io)
+    setInterval(() => runCommissionDueSweep(io), 60 * 60 * 1000)
 })
 

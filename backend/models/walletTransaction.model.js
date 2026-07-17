@@ -14,13 +14,12 @@ const walletTransactionSchema = new mongoose.Schema({
     type: {
         type: String,
         enum: [
-            "EARNING",            // credit from a completed booking
-            "COMMISSION_DEDUCT",  // legacy debit, commission taken out of deposit
-            "COMMISSION_DEDUCTION", // debit, commission taken out of deposit for cash bookings
-            "COMMISSION_PAID",    // credit-ish ledger entry: worker cleared their pending commission due
-            "DEPOSIT_PAID",       // credit, worker topped up deposit
-            "WITHDRAWAL",         // debit, payout to worker
-            "ADJUSTMENT"          // manual admin correction
+            "EARNING",              // credit, worker's net earning on an online booking
+            "COMMISSION_COLLECTED", // informational, commission auto-deducted at source (online booking)
+            "COMMISSION_DUE",       // informational, a Commission Due was created (offline booking, payment confirmed)
+            "COMMISSION_PAID",      // debit from wallet balance (or online payment), worker cleared a commission due
+            "WITHDRAWAL",           // debit, payout to worker
+            "ADJUSTMENT"            // manual admin correction
         ],
         required: true
     },

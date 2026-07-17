@@ -6,7 +6,7 @@ const walletSlice = createSlice({
         wallet: null,
         transactions: [],
         withdrawals: [],
-        depositConfig: null
+        commissionDues: []
     },
     reducers: {
         setWallet: (state, action) => {
@@ -18,11 +18,11 @@ const walletSlice = createSlice({
         setWithdrawals: (state, action) => {
             state.withdrawals = action.payload
         },
-        setDepositConfig: (state, action) => {
-            state.depositConfig = action.payload
+        setCommissionDues: (state, action) => {
+            state.commissionDues = action.payload
         }
     }
 })
 
-export const { setWallet, setTransactions, setWithdrawals, setDepositConfig } = walletSlice.actions
+export const { setWallet, setTransactions, setWithdrawals, setCommissionDues } = walletSlice.actions
 export default walletSlice.reducer

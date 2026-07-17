@@ -11,9 +11,9 @@ import WorkerOnboarding from './pages/worker/WorkerOnboarding'
 import WorkerProfilePage from './pages/WorkerProfilePage'
 import BookWorkerPage from './pages/BookWorkerPage'
 import BookingDetailPage from './pages/BookingDetailPage'
+import CheckOut from './pages/CheckOut'
 import MyBookingsPage from './pages/MyBookingsPage'
 import WorkerBookingsPage from './pages/worker/WorkerBookingsPage'
-import DepositPage from './pages/worker/DepositPage'
 import WalletPage from './pages/worker/WalletPage'
 import ChatListPage from './pages/ChatListPage'
 import ChatPage from './pages/ChatPage'
@@ -77,10 +77,10 @@ function App() {
                 <Route path='/worker-onboarding' element={userData?.role === "worker" ? <WorkerOnboarding /> : <Navigate to={"/signin"} />} />
                 <Route path='/worker/:workerId' element={<WorkerProfilePage />} />
                 <Route path='/book/:workerId' element={userData?.role === "customer" ? <BookWorkerPage /> : <Navigate to={"/signin"} />} />
+                <Route path='/checkout' element={userData?.role === "customer" ? <CheckOut /> : <Navigate to={"/signin"} />} />
                 <Route path='/bookings/:bookingId' element={userData ? <BookingDetailPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/bookings' element={userData?.role === "customer" ? <MyBookingsPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/worker-bookings' element={userData?.role === "worker" ? <WorkerBookingsPage /> : <Navigate to={"/signin"} />} />
-                <Route path='/deposit' element={userData?.role === "worker" ? <DepositPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/wallet' element={userData?.role === "worker" ? <WalletPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/chats' element={userData ? <ChatListPage /> : <Navigate to={"/signin"} />} />
                 <Route path='/chat/:bookingId' element={userData ? <ChatPage /> : <Navigate to={"/signin"} />} />

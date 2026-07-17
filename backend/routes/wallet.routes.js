@@ -6,8 +6,10 @@ import {
     getMyTransactions,
     requestWithdrawal,
     getMyWithdrawals,
-    createDuePaymentOrder,
-    verifyDuePayment,
+    getMyCommissionDues,
+    payCommissionDueFromWallet,
+    createCommissionDuePaymentOrder,
+    verifyCommissionDuePayment,
     adminListWithdrawals,
     adminProcessWithdrawal
 } from "../controllers/wallet.controllers.js"
@@ -18,8 +20,12 @@ walletRouter.get("/me", isAuth, authorize("worker"), getMyWallet)
 walletRouter.get("/transactions", isAuth, authorize("worker"), getMyTransactions)
 walletRouter.post("/withdraw", isAuth, authorize("worker"), requestWithdrawal)
 walletRouter.get("/withdrawals/my", isAuth, authorize("worker"), getMyWithdrawals)
-walletRouter.post("/due/create-order", isAuth, authorize("worker"), createDuePaymentOrder)
-walletRouter.post("/due/verify", isAuth, authorize("worker"), verifyDuePayment)
+
+// Commission Due Management
+walletRouter.get("/commission-dues", isAuth, authorize("worker"), getMyCommissionDues)
+walletRouter.post("/commission-dues/:dueId/pay-wallet", isAuth, authorize("worker"), payCommissionDueFromWallet)
+walletRouter.post("/commission-dues/:dueId/create-order", isAuth, authorize("worker"), createCommissionDuePaymentOrder)
+walletRouter.post("/commission-dues/:dueId/verify", isAuth, authorize("worker"), verifyCommissionDuePayment)
 
 walletRouter.get("/admin/withdrawals", isAuth, authorize("admin"), adminListWithdrawals)
 walletRouter.patch("/admin/withdrawals/:withdrawalId", isAuth, authorize("admin"), adminProcessWithdrawal)

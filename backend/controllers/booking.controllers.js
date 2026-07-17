@@ -4,11 +4,12 @@ import User from "../models/user.model.js"
 import Coupon from "../models/coupon.model.js"
 import { getEffectiveCommissionPercent } from "../utils/commission.js"
 import { sendBookingOtpMail } from "../utils/mail.js"
-import { settleOfflineCommission, creditOnlineEarning } from "../utils/walletEngine.js"
-import { createRazorpayOrder, verifyRazorpaySignature } from "../utils/razorpay.js"
+import { createCommissionDue, creditOnlineEarning } from "../utils/walletEngine.js"
+import { createRazorpayOrder, verifyRazorpaySignature, getRazorpayErrorMessage } from "../utils/razorpay.js"
 import { pushNotification } from "../utils/notify.js"
 
 const generateOtp = () => String(Math.floor(1000 + Math.random() * 9000))
+const isCashPaymentMethod = (paymentMethod) => ["offline", "cash", "Cash"].includes(paymentMethod)
 
 // Pushes a live update to whichever party (customer/worker) is currently
 // connected, so both apps can refresh booking state without polling.
@@ -345,33 +346,81 @@ export const verifyCompletionOtp = async (req, res) => {
         await WorkerProfile.findOneAndUpdate({ user: booking.worker }, { $inc: { completedJobs: 1 } })
 
         const io = req.app.get("io")
-        const isCashBooking = ["offline", "cash", "Cash"].includes(booking.paymentMethod)
 
-        // Offline/cash jobs: the customer already paid the worker in person, so
-        // commission is owed to the platform right now - pull it from the worker's deposit
-        // (or queue it as pendingCommission if the deposit can't cover it).
-        // Online jobs settle via createBookingPaymentOrder/verifyBookingPayment instead.
-        if (isCashBooking) {
-            await settleOfflineCommission(booking.worker, booking._id, booking.commissionAmount, booking.amount, io)
-        }
-
+        // Work is done. NOTHING payment/commission-related happens here - the
+        // worker explicitly triggers that afterwards via "Receive Offline
+        // Payment" (see receiveOfflinePayment below) or the existing online
+        // payment flow (createBookingPaymentOrder/verifyBookingPayment).
         await notifyParties(io, booking)
         await pushNotification(io, booking.customer, {
             type: "WORK_COMPLETED",
             title: "Job completed",
-            message: booking.paymentMethod === "online" ? "Your job is done — pay online to settle the booking." : "Your job is done. Don't forget to leave a review!",
+            message: booking.paymentMethod === "online" ? "Your job is done — pay online to settle the booking." : "Your job is done. Pay your worker in cash to complete the booking.",
             data: { bookingId: booking._id }
         })
         await pushNotification(io, booking.worker, {
             type: "WORK_COMPLETED",
             title: "Job marked completed",
-            message: "Nice work! The booking has been marked completed.",
+            message: "Nice work! Confirm how you were paid to settle this booking.",
             data: { bookingId: booking._id }
         })
 
         return res.status(200).json(booking)
     } catch (error) {
         return res.status(500).json({ message: `verify completion otp error ${error}` })
+    }
+}
+
+// ---- Receive Payment (post work-completion) ----
+// Replaces the old Payment Confirmation OTP module entirely. No OTP is
+// involved: the worker directly confirms how they were paid.
+
+// Worker taps [Receive Offline Payment] -> confirmation dialog -> YES.
+// Reuses the existing commission/wallet engine (createCommissionDue) exactly
+// as before - only the trigger changed, from OTP verification to this
+// explicit worker confirmation.
+export const receiveOfflinePayment = async (req, res) => {
+    try {
+        const booking = await Booking.findOne({ _id: req.params.bookingId, worker: req.userId })
+        if (!booking) return res.status(404).json({ message: "booking not found" })
+        if (booking.status !== "COMPLETED") {
+            return res.status(400).json({ message: "work must be marked completed before confirming payment" })
+        }
+        // Prevent duplicate payment confirmations.
+        if (booking.paymentStatus === "PAID") {
+            return res.status(400).json({ message: "payment has already been confirmed for this booking" })
+        }
+
+        booking.paymentMethod = "offline"
+        booking.paymentStatus = "PAID"
+        booking.status = "PAYMENT_RECEIVED"
+        booking.paidAt = new Date()
+        booking.receivedByWorker = true
+        await booking.save()
+
+        const io = req.app.get("io")
+        // Existing commission calculations, wallet crediting, and the 7-day
+        // commission due countdown - unchanged from before, just invoked here now.
+        await createCommissionDue(booking.worker, booking._id, io)
+
+        const refreshed = await Booking.findById(booking._id)
+        await notifyParties(io, refreshed)
+        await pushNotification(io, booking.customer, {
+            type: "PAYMENT_CONFIRMED",
+            title: "Payment Successfully Received by Worker",
+            message: "Your cash payment has been confirmed by the worker.",
+            data: { bookingId: booking._id }
+        })
+        await pushNotification(io, booking.worker, {
+            type: "PAYMENT_CONFIRMED",
+            title: "Payment confirmed",
+            message: "Cash payment confirmed. The platform commission for this booking is now due.",
+            data: { bookingId: booking._id }
+        })
+
+        return res.status(200).json(refreshed)
+    } catch (error) {
+        return res.status(500).json({ message: `receive offline payment error ${error}` })
     }
 }
 
@@ -401,8 +450,8 @@ export const cancelBooking = async (req, res) => {
     }
 }
 
-// ---- Online payment capture (offline bookings settle automatically on
-// completion via settleOfflineCommission - see verifyCompletionOtp above) ----
+// ---- Online payment capture (offline bookings settle via
+// receiveOfflinePayment above - no OTP involved on either path) ----
 
 export const createBookingPaymentOrder = async (req, res) => {
     try {
@@ -414,7 +463,7 @@ export const createBookingPaymentOrder = async (req, res) => {
         if (booking.status !== "COMPLETED") {
             return res.status(400).json({ message: "payment opens up once the job is marked completed" })
         }
-        if (booking.isPaid) {
+        if (booking.paymentStatus === "PAID") {
             return res.status(400).json({ message: "already paid" })
         }
 
@@ -424,7 +473,9 @@ export const createBookingPaymentOrder = async (req, res) => {
 
         return res.status(201).json({ order })
     } catch (error) {
-        return res.status(500).json({ message: `create booking payment order error ${error}` })
+        const reason = getRazorpayErrorMessage(error)
+        console.error("create booking payment order error:", error)
+        return res.status(500).json({ message: `create booking payment order error: ${reason}` })
     }
 }
 
@@ -433,17 +484,20 @@ export const verifyBookingPayment = async (req, res) => {
         const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = req.body
         const booking = await Booking.findOne({ _id: req.params.bookingId, customer: req.userId })
         if (!booking) return res.status(404).json({ message: "booking not found" })
-        if (booking.isPaid) return res.status(200).json(booking)
+        if (booking.paymentStatus === "PAID") return res.status(200).json(booking)
 
         const isValid = verifyRazorpaySignature({ orderId: razorpayOrderId, paymentId: razorpayPaymentId, signature: razorpaySignature })
         if (!isValid) return res.status(400).json({ message: "payment verification failed" })
 
-        booking.isPaid = true
+        booking.paymentStatus = "PAID"
+        booking.status = "PAYMENT_RECEIVED"
+        booking.paidAt = new Date()
         booking.razorpayPaymentId = razorpayPaymentId
         await booking.save()
 
-        await creditOnlineEarning(booking.worker, booking._id, booking.amount, booking.workerEarning)
-        await notifyParties(req.app.get("io"), booking)
+        await creditOnlineEarning(booking.worker, booking._id, booking.amount, booking.workerEarning, booking.commissionAmount)
+        const refreshed = await Booking.findById(booking._id)
+        await notifyParties(req.app.get("io"), refreshed)
         await pushNotification(req.app.get("io"), booking.worker, {
             type: "PAYMENT_RECEIVED",
             title: "Payment received",
@@ -451,8 +505,10 @@ export const verifyBookingPayment = async (req, res) => {
             data: { bookingId: booking._id }
         })
 
-        return res.status(200).json(booking)
+        return res.status(200).json(refreshed)
     } catch (error) {
-        return res.status(500).json({ message: `verify booking payment error ${error}` })
+        const reason = getRazorpayErrorMessage(error)
+        console.error("verify booking payment error:", error)
+        return res.status(500).json({ message: `verify booking payment error: ${reason}` })
     }
 }

@@ -8,6 +8,7 @@ const STATUS_STYLES = {
     ARRIVED: "bg-purple-50 text-purple-700",
     WORK_STARTED: "bg-indigo-50 text-indigo-700",
     COMPLETED: "bg-green-50 text-green-700",
+    PAYMENT_RECEIVED: "bg-emerald-100 text-emerald-800",
     CANCELLED: "bg-gray-100 text-gray-500"
 }
 
@@ -18,7 +19,8 @@ const STATUS_LABELS = {
     ON_THE_WAY: "On the way",
     ARRIVED: "Arrived",
     WORK_STARTED: "Work in progress",
-    COMPLETED: "Completed",
+    COMPLETED: "Work Completed",
+    PAYMENT_RECEIVED: "Payment Received",
     CANCELLED: "Cancelled"
 }
 
